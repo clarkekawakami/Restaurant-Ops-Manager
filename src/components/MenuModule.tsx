@@ -21,7 +21,7 @@ import {
   Package,
   ArrowRight,
 } from 'lucide-react';
-import { MenuItem, MenuCategory, InventoryItem } from '../types.ts';
+import { MenuItem, MenuCategory, InventoryCategory, InventoryItem } from '../types.ts';
 import { api } from '../lib/api.ts';
 import { InventorySkuLookup } from './InventorySkuLookup.tsx';
 
@@ -35,6 +35,7 @@ interface CostDriverRow {
 export const MenuModule: React.FC = () => {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [inventoryCategories, setInventoryCategories] = useState<InventoryCategory[]>([]);
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -81,14 +82,16 @@ export const MenuModule: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [fetchedItems, fetchedCats, fetchedInv] = await Promise.all([
+      const [fetchedItems, fetchedCats, fetchedInv, fetchedInvCats] = await Promise.all([
         api.getMenuItems(),
         api.getCategories(),
         api.getInventory(),
+        api.getInventoryCategories(),
       ]);
       setItems(fetchedItems);
       setCategories(fetchedCats);
       setInventoryList(fetchedInv);
+      setInventoryCategories(fetchedInvCats);
     } catch (err) {
       console.error('Error loading menu:', err);
     } finally {
@@ -1238,14 +1241,23 @@ export const MenuModule: React.FC = () => {
                     onChange={(e) => setNewSkuData({ ...newSkuData, category: e.target.value })}
                     className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 focus:ring-2 focus:ring-slate-900 focus:outline-hidden"
                   >
-                    <option value="Meat & Poultry">Meat & Poultry</option>
-                    <option value="Seafood">Seafood</option>
-                    <option value="Produce">Produce</option>
-                    <option value="Dairy">Dairy</option>
-                    <option value="Bakery">Bakery</option>
-                    <option value="Pantry & Dry Goods">Pantry & Dry Goods</option>
-                    <option value="Beverages">Beverages</option>
-                    <option value="Other">Other</option>
+                    {inventoryCategories.length > 0 ? (
+                      inventoryCategories.map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="Meat">Meat</option>
+                        <option value="Seafood">Seafood</option>
+                        <option value="Produce">Produce</option>
+                        <option value="Dairy">Dairy</option>
+                        <option value="Pantry">Pantry</option>
+                        <option value="Beverage">Beverage</option>
+                        <option value="Frozen">Frozen</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
