@@ -18,9 +18,14 @@ import {
   X,
   KeyRound,
   Calculator,
+  ShieldAlert,
+  ShieldCheck,
+  Lock,
+  Check,
 } from 'lucide-react';
 import { StaffMember, TimeShift, TipRecord, PayrollSummaryRow } from '../types.ts';
 import { api } from '../lib/api.ts';
+import { AdminAuthModal } from './AdminAuthModal.tsx';
 
 interface StaffModuleProps {
   staffList: StaffMember[];
@@ -28,6 +33,8 @@ interface StaffModuleProps {
   onStatsRefresh: () => void;
   quickClockInOpen?: boolean;
   onCloseQuickClockIn?: () => void;
+  currentUser?: StaffMember | null;
+  setCurrentUser?: (staff: StaffMember) => void;
 }
 
 export const StaffModule: React.FC<StaffModuleProps> = ({
@@ -36,6 +43,8 @@ export const StaffModule: React.FC<StaffModuleProps> = ({
   onStatsRefresh,
   quickClockInOpen,
   onCloseQuickClockIn,
+  currentUser,
+  setCurrentUser,
 }) => {
   const [activeTab, setActiveTab] = useState<'terminal' | 'tips' | 'payroll' | 'roster'>('terminal');
   const [shifts, setShifts] = useState<TimeShift[]>([]);
@@ -72,13 +81,18 @@ export const StaffModule: React.FC<StaffModuleProps> = ({
   const [poolAmount, setPoolAmount] = useState<string>('');
   const [poolNotes, setPoolNotes] = useState<string>('');
 
-  // Add staff modal
+  // Admin access auth modal for Staff Roster
+  const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState<boolean>(false);
+
+  // Add / Edit staff modal
   const [isStaffModalOpen, setIsStaffModalOpen] = useState<boolean>(false);
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   const [staffForm, setStaffForm] = useState({
     name: '',
-    role: 'server',
+    title: 'server',
     hourly_rate: '16.50',
     pin: '1234',
+    admin_access: false,
   });
 
   // Manual shift edit modal
@@ -198,24 +212,80 @@ export const StaffModule: React.FC<StaffModuleProps> = ({
     }
   };
 
-  // Add staff member
-  const handleCreateStaff = async (e: React.FormEvent) => {
+  // Open add/edit staff modal with admin access check
+  const handleOpenAddStaff = () => {
+    if (!currentUser?.admin_access) {
+      setIsAdminAuthModalOpen(true);
+      return;
+    }
+    setEditingStaff(null);
+    setStaffForm({
+      name: '',
+      title: 'server',
+      hourly_rate: '16.50',
+      pin: '1234',
+      admin_access: false,
+    });
+    setIsStaffModalOpen(true);
+  };
+
+  const handleOpenEditStaff = (st: StaffMember) => {
+    if (!currentUser?.admin_access) {
+      setIsAdminAuthModalOpen(true);
+      return;
+    }
+    setEditingStaff(st);
+    setStaffForm({
+      name: st.name,
+      title: st.title || st.role,
+      hourly_rate: String(st.hourly_rate),
+      pin: st.pin || '1234',
+      admin_access: Boolean(st.admin_access),
+    });
+    setIsStaffModalOpen(true);
+  };
+
+  // Add / Edit staff member
+  const handleSaveStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!staffForm.name || !staffForm.hourly_rate) return;
 
     try {
-      await api.createStaff({
-        name: staffForm.name,
-        role: staffForm.role,
-        hourly_rate: Number(staffForm.hourly_rate),
-        pin: staffForm.pin,
-      });
+      if (editingStaff) {
+        await api.updateStaff(editingStaff.id, {
+          name: staffForm.name,
+          title: staffForm.title,
+          role: staffForm.title,
+          hourly_rate: Number(staffForm.hourly_rate),
+          pin: staffForm.pin,
+          admin_access: Boolean(staffForm.admin_access),
+        });
+      } else {
+        await api.createStaff({
+          name: staffForm.name,
+          title: staffForm.title,
+          role: staffForm.title,
+          hourly_rate: Number(staffForm.hourly_rate),
+          pin: staffForm.pin,
+          admin_access: Boolean(staffForm.admin_access),
+        });
+      }
       setIsStaffModalOpen(false);
-      setStaffForm({ name: '', role: 'server', hourly_rate: '16.50', pin: '1234' });
+      setEditingStaff(null);
+      setStaffForm({ name: '', title: 'server', hourly_rate: '16.50', pin: '1234', admin_access: false });
       onStaffRefresh();
       loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to add staff');
+      alert(err.message || 'Failed to save staff member');
+    }
+  };
+
+  // Admin gated click for Staff Roster & Wage Rates
+  const handleRosterTabClick = () => {
+    if (currentUser?.admin_access) {
+      setActiveTab('roster');
+    } else {
+      setIsAdminAuthModalOpen(true);
     }
   };
 
@@ -296,7 +366,8 @@ export const StaffModule: React.FC<StaffModuleProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('roster')}
+          id="tab-staff-roster"
+          onClick={handleRosterTabClick}
           className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
             activeTab === 'roster'
               ? 'bg-slate-900 text-white shadow-2xs'
@@ -305,6 +376,9 @@ export const StaffModule: React.FC<StaffModuleProps> = ({
         >
           <Users className="w-3.5 h-3.5" />
           <span>Staff Roster & Wage Rates ({staffList.length})</span>
+          {!currentUser?.admin_access && (
+            <Lock className="w-3 h-3 text-slate-400 ml-0.5" />
+          )}
         </button>
       </div>
 
@@ -639,14 +713,23 @@ export const StaffModule: React.FC<StaffModuleProps> = ({
       {/* TAB 4: STAFF ROSTER */}
       {activeTab === 'roster' && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200">
             <div>
-              <h3 className="font-heading text-sm font-bold text-slate-900">Restaurant Staff Members</h3>
-              <p className="text-xs text-slate-500">Manage roles, base compensation rates, and staff clock PINs.</p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-heading text-sm font-bold text-slate-900">Restaurant Staff Members</h3>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                  <ShieldCheck className="w-3 h-3 text-amber-600" />
+                  Admin Protected
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Manage staff job titles, base compensation rates, administrator permissions, and clock PINs.
+              </p>
             </div>
             <button
-              onClick={() => setIsStaffModalOpen(true)}
-              className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-800 cursor-pointer flex items-center gap-1.5"
+              id="btn-add-staff-member"
+              onClick={handleOpenAddStaff}
+              className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-800 cursor-pointer flex items-center gap-1.5 shadow-xs shrink-0 self-start sm:self-auto"
             >
               <Plus className="w-3.5 h-3.5 text-amber-400" />
               <span>Add Staff Member</span>
@@ -654,32 +737,70 @@ export const StaffModule: React.FC<StaffModuleProps> = ({
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 uppercase tracking-wider text-[10px]">
-                <tr>
-                  <th className="p-3.5">Name</th>
-                  <th className="p-3.5">Role</th>
-                  <th className="p-3.5">Hourly Rate</th>
-                  <th className="p-3.5">Clock PIN</th>
-                  <th className="p-3.5">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {staffList.map((st) => (
-                  <tr key={st.id} className="hover:bg-slate-50 transition">
-                    <td className="p-3.5 font-bold text-slate-900">{st.name}</td>
-                    <td className="p-3.5 uppercase font-medium text-slate-600">{st.role}</td>
-                    <td className="p-3.5 font-mono text-slate-800">${st.hourly_rate.toFixed(2)}/hr</td>
-                    <td className="p-3.5 font-mono text-slate-500">••••</td>
-                    <td className="p-3.5">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        Active
-                      </span>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 uppercase tracking-wider text-[10px]">
+                  <tr>
+                    <th className="p-3.5">Name</th>
+                    <th className="p-3.5">Title</th>
+                    <th className="p-3.5">Admin Access</th>
+                    <th className="p-3.5">Hourly Rate</th>
+                    <th className="p-3.5">Clock PIN</th>
+                    <th className="p-3.5">Status</th>
+                    <th className="p-3.5 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {staffList.map((st) => (
+                    <tr key={st.id} className="hover:bg-slate-50 transition">
+                      <td className="p-3.5 font-bold text-slate-900">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs">
+                            {st.name.charAt(0)}
+                          </div>
+                          <span>{st.name}</span>
+                        </div>
+                      </td>
+                      <td className="p-3.5 uppercase font-medium text-slate-700">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px]">
+                          {st.title || st.role}
+                        </span>
+                      </td>
+                      <td className="p-3.5">
+                        {st.admin_access ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            <ShieldCheck className="w-3 h-3 text-amber-600" />
+                            <span>Admin Access</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                            <span>Standard Staff</span>
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3.5 font-mono font-semibold text-slate-800">${st.hourly_rate.toFixed(2)}/hr</td>
+                      <td className="p-3.5 font-mono text-slate-500 tracking-wider">
+                        <span className="bg-slate-100 px-2 py-0.5 rounded text-[11px]">••••</span>
+                      </td>
+                      <td className="p-3.5">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          Active
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-right">
+                        <button
+                          onClick={() => handleOpenEditStaff(st)}
+                          className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                          title="Edit Staff Member"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -714,7 +835,7 @@ export const StaffModule: React.FC<StaffModuleProps> = ({
                 >
                   {staffList.map((st) => (
                     <option key={st.id} value={st.id}>
-                      {st.name} ({st.role})
+                      {st.name} ({st.title || st.role})
                     </option>
                   ))}
                 </select>
@@ -869,7 +990,7 @@ export const StaffModule: React.FC<StaffModuleProps> = ({
                   <option value="">-- General / Pooled Tip --</option>
                   {staffList.map((st) => (
                     <option key={st.id} value={st.id}>
-                      {st.name} ({st.role})
+                      {st.name} ({st.title || st.role})
                     </option>
                   ))}
                 </select>
@@ -1013,21 +1134,26 @@ export const StaffModule: React.FC<StaffModuleProps> = ({
         </div>
       )}
 
-      {/* ADD STAFF MODAL */}
+      {/* ADD / EDIT STAFF MODAL */}
       {isStaffModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden border border-slate-200">
             <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-              <h3 className="font-heading text-sm font-bold text-slate-900">Add Staff Member</h3>
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-slate-700" />
+                <h3 className="font-heading text-sm font-bold text-slate-900">
+                  {editingStaff ? 'Edit Staff Member' : 'Add Staff Member'}
+                </h3>
+              </div>
               <button
                 onClick={() => setIsStaffModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateStaff} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleSaveStaff} className="p-5 space-y-4 text-xs">
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">Full Name *</label>
                 <input
@@ -1041,10 +1167,10 @@ export const StaffModule: React.FC<StaffModuleProps> = ({
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Role</label>
+                <label className="block text-slate-700 font-semibold mb-1">Job Title *</label>
                 <select
-                  value={staffForm.role}
-                  onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}
+                  value={staffForm.title}
+                  onChange={(e) => setStaffForm({ ...staffForm, title: e.target.value })}
                   className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 focus:ring-2 focus:ring-slate-900 focus:outline-hidden"
                 >
                   <option value="server">Server</option>
@@ -1055,6 +1181,28 @@ export const StaffModule: React.FC<StaffModuleProps> = ({
                   <option value="manager">Manager</option>
                   <option value="dishwasher">Dishwasher / Busser</option>
                 </select>
+              </div>
+
+              {/* Admin Access Checkbox */}
+              <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl space-y-1.5">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="staff-admin-access-checkbox"
+                    checked={staffForm.admin_access}
+                    onChange={(e) => setStaffForm({ ...staffForm, admin_access: e.target.checked })}
+                    className="mt-0.5 h-4 w-4 rounded-sm border-slate-300 text-slate-900 focus:ring-slate-900"
+                  />
+                  <div>
+                    <span className="font-bold text-slate-900 flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                      Grant Administrator Privileges (admin_access = true)
+                    </span>
+                    <p className="text-[11px] text-slate-600 mt-0.5 leading-normal">
+                      Authorizes this staff member to view and manage staff data, inventory, and menu items.
+                    </p>
+                  </div>
+                </label>
               </div>
 
               <div>
@@ -1074,8 +1222,8 @@ export const StaffModule: React.FC<StaffModuleProps> = ({
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">4-Digit Terminal PIN *</label>
                 <input
-                  type="text"
-                  maxLength={4}
+                  type="password"
+                  maxLength={6}
                   required
                   placeholder="1234"
                   value={staffForm.pin}
@@ -1084,25 +1232,42 @@ export const StaffModule: React.FC<StaffModuleProps> = ({
                 />
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsStaffModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800"
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 cursor-pointer flex items-center gap-1.5"
                 >
-                  Add Employee
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{editingStaff ? 'Update Staff Member' : 'Add Staff Member'}</span>
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* ADMIN AUTHORIZATION MODAL FOR ROSTER & WAGES */}
+      <AdminAuthModal
+        isOpen={isAdminAuthModalOpen}
+        onClose={() => setIsAdminAuthModalOpen(false)}
+        adminStaffList={staffList.filter((s) => s.admin_access)}
+        onSuccess={(authenticatedAdmin) => {
+          if (setCurrentUser) {
+            setCurrentUser(authenticatedAdmin);
+          }
+          setIsAdminAuthModalOpen(false);
+          setActiveTab('roster');
+        }}
+        title="Admin Authorization Required"
+        description="Administrator access is required to view the Restaurant Staff Members roster and wage rates."
+      />
     </div>
   );
 };

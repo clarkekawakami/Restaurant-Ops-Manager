@@ -21,9 +21,10 @@ import {
   Package,
   ArrowRight,
 } from 'lucide-react';
-import { MenuItem, MenuCategory, InventoryCategory, InventoryItem } from '../types.ts';
+import { MenuItem, MenuCategory, InventoryCategory, InventoryItem, StaffMember } from '../types.ts';
 import { api } from '../lib/api.ts';
 import { InventorySkuLookup } from './InventorySkuLookup.tsx';
+import { AdminAuthModal } from './AdminAuthModal.tsx';
 
 interface CostDriverRow {
   driver_name: string;
@@ -32,12 +33,35 @@ interface CostDriverRow {
   driver_cost: number;
 }
 
-export const MenuModule: React.FC = () => {
+interface MenuModuleProps {
+  currentUser?: StaffMember | null;
+  staffList?: StaffMember[];
+  onRequireAdminAuth?: (admin: StaffMember) => void;
+}
+
+export const MenuModule: React.FC<MenuModuleProps> = ({
+  currentUser,
+  staffList = [],
+  onRequireAdminAuth,
+}) => {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [inventoryCategories, setInventoryCategories] = useState<InventoryCategory[]>([]);
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Admin access gating
+  const [isAdminAuthOpen, setIsAdminAuthOpen] = useState<boolean>(false);
+  const [adminPendingAction, setAdminPendingAction] = useState<(() => void) | null>(null);
+
+  const requireAdmin = (action: () => void) => {
+    if (currentUser?.admin_access) {
+      action();
+    } else {
+      setAdminPendingAction(() => action);
+      setIsAdminAuthOpen(true);
+    }
+  };
 
   // Filters
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -505,7 +529,8 @@ export const MenuModule: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setIsCategoryModalOpen(true)}
+            id="btn-manage-menu-categories"
+            onClick={() => requireAdmin(() => setIsCategoryModalOpen(true))}
             className="px-3 py-2 text-xs font-semibold rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5"
           >
             <Layers className="w-3.5 h-3.5" />
@@ -514,7 +539,7 @@ export const MenuModule: React.FC = () => {
 
           <button
             id="btn-add-menu-item"
-            onClick={handleOpenNewItem}
+            onClick={() => requireAdmin(handleOpenNewItem)}
             className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
           >
             <Plus className="w-4 h-4 text-amber-400" />
@@ -744,7 +769,7 @@ export const MenuModule: React.FC = () => {
 
                       <td className="p-3.5 text-center">
                         <button
-                          onClick={() => handleToggleAvailability(item)}
+                          onClick={() => requireAdmin(() => handleToggleAvailability(item))}
                           className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition cursor-pointer border ${
                             item.is_available
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
@@ -758,14 +783,14 @@ export const MenuModule: React.FC = () => {
                       <td className="p-3.5 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
-                            onClick={() => handleOpenEditItem(item)}
+                            onClick={() => requireAdmin(() => handleOpenEditItem(item))}
                             className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
                             title="Edit"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDeleteItem(item.id)}
+                            onClick={() => requireAdmin(() => handleDeleteItem(item.id))}
                             className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
                             title="Delete"
                           >
@@ -1404,6 +1429,28 @@ export const MenuModule: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ADMIN AUTHORIZATION MODAL */}
+      <AdminAuthModal
+        isOpen={isAdminAuthOpen}
+        onClose={() => {
+          setIsAdminAuthOpen(false);
+          setAdminPendingAction(null);
+        }}
+        adminStaffList={staffList.filter((s) => s.admin_access)}
+        onSuccess={(authenticatedAdmin) => {
+          if (onRequireAdminAuth) {
+            onRequireAdminAuth(authenticatedAdmin);
+          }
+          setIsAdminAuthOpen(false);
+          if (adminPendingAction) {
+            adminPendingAction();
+            setAdminPendingAction(null);
+          }
+        }}
+        title="Administrator Access Required"
+        description="Administrator authorization is required to modify menu items, pricing, or categories."
+      />
     </div>
   );
 };

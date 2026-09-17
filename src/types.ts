@@ -49,6 +49,59 @@ export interface InventoryCategory {
   item_count?: number;
 }
 
+export interface SeatingLocation {
+  id: string;
+  name: string; // e.g. "Main Dining Room", "Bar", "Patio"
+  display_order: number;
+  description?: string;
+  table_count?: number;
+  total_seats?: number;
+  created_at?: string;
+  tables?: DiningTable[];
+}
+
+export type TableShape = 'standard' | 'booth' | 'bar' | 'outdoor' | 'round';
+export type TableOccupancyStatus = 'available' | 'occupied' | 'reserved';
+
+export interface DiningTable {
+  id: string;
+  location_id: string;
+  location_name?: string;
+  location_order?: number;
+  table_number: string; // e.g. "Table 1", "Bar 1", "Patio 1"
+  seats: number; // The number of seats at this table
+  shape?: TableShape | string;
+  is_active: boolean | number;
+  display_order?: number;
+  created_at?: string;
+  // Dynamic occupancy metadata from backend
+  status?: TableOccupancyStatus;
+  active_order?: {
+    id: string;
+    order_number: number;
+    guest_count: number;
+    total: number;
+    status: string;
+    created_at: string;
+  } | null;
+  active_reservation?: {
+    id: string;
+    guest_name: string;
+    party_size: number;
+    reservation_time: string;
+    status: string;
+  } | null;
+}
+
+export interface SeatingPlanOverview {
+  locations: SeatingLocation[];
+  tables: DiningTable[];
+  total_tables: number;
+  total_seats: number;
+  occupied_tables: number;
+  reserved_tables: number;
+}
+
 export interface InventoryItem {
   id: string;
   name: string;
@@ -75,10 +128,12 @@ export interface InventoryLog {
 export interface StaffMember {
   id: string;
   name: string;
-  role: 'server' | 'bartender' | 'line_cook' | 'head_chef' | 'host' | 'manager' | 'dishwasher';
+  title: 'server' | 'bartender' | 'line_cook' | 'head_chef' | 'host' | 'manager' | 'dishwasher' | string;
+  role?: string; // backwards compatibility alias for title
   hourly_rate: number;
   pin: string;
   is_active: boolean;
+  admin_access: boolean;
   current_shift_id?: string | null;
   created_at: string;
 }
@@ -87,6 +142,7 @@ export interface TimeShift {
   id: string;
   staff_id: string;
   staff_name?: string;
+  staff_title?: string;
   staff_role?: string;
   clock_in: string;
   clock_out?: string | null;
@@ -114,7 +170,8 @@ export interface TipRecord {
 export interface PayrollSummaryRow {
   staff_id: string;
   staff_name: string;
-  role: string;
+  title: string;
+  role?: string;
   hourly_rate: number;
   total_hours: number;
   base_wages: number;

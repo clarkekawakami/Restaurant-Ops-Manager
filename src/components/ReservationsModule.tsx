@@ -16,8 +16,10 @@ import {
   Trash2,
   X,
   Sparkles,
+  MapPin,
+  Armchair,
 } from 'lucide-react';
-import { Reservation, ReservationStatus } from '../types.ts';
+import { Reservation, ReservationStatus, DiningTable, SeatingLocation } from '../types.ts';
 import { api } from '../lib/api.ts';
 
 interface ReservationsModuleProps {
@@ -35,10 +37,14 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [viewMode, setViewMode] = useState<'timeline' | 'table_view'>('timeline');
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [diningTables, setDiningTables] = useState<DiningTable[]>([]);
+  const [seatingLocations, setSeatingLocations] = useState<SeatingLocation[]>([]);
+  const [selectedFloorLocation, setSelectedFloorLocation] = useState<string>('all');
 
   // Modal
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingRes, setEditingRes] = useState<Reservation | null>(null);
+  const [selectedResLocationId, setSelectedResLocationId] = useState<string>('');
 
   // Form
   const [formData, setFormData] = useState({
@@ -47,7 +53,7 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
     party_size: '2',
     reservation_date: new Date().toISOString().split('T')[0],
     reservation_time: '19:00',
-    table_number: 'Table 2',
+    table_number: 'Table 1',
     notes: '',
   });
 
@@ -58,8 +64,14 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await api.getReservations(selectedDate);
-      setReservations(data);
+      const [resData, tablesData, locsData] = await Promise.all([
+        api.getReservations(selectedDate),
+        api.getDiningTables().catch(() => []),
+        api.getSeatingLocations().catch(() => []),
+      ]);
+      setReservations(resData);
+      setDiningTables(tablesData);
+      setSeatingLocations(locsData);
     } catch (err) {
       console.error('Error fetching reservations:', err);
     } finally {
@@ -69,13 +81,34 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
 
   const handleOpenNew = (defaultTable?: string) => {
     setEditingRes(null);
+    let initialLocId = seatingLocations[0]?.id || '';
+    let initialTable = defaultTable || '';
+
+    if (defaultTable && diningTables.length > 0) {
+      const match = diningTables.find(
+        (dt) => dt.table_number.toLowerCase() === defaultTable.toLowerCase()
+      );
+      if (match) {
+        initialLocId = match.location_id;
+        initialTable = match.table_number;
+      }
+    }
+
+    if (!initialTable && initialLocId) {
+      const locTables = diningTables.filter((dt) => dt.location_id === initialLocId);
+      if (locTables.length > 0) {
+        initialTable = locTables[0].table_number;
+      }
+    }
+
+    setSelectedResLocationId(initialLocId);
     setFormData({
       customer_name: '',
       customer_phone: '',
       party_size: '2',
       reservation_date: selectedDate,
       reservation_time: '19:00',
-      table_number: defaultTable || 'Table 1',
+      table_number: initialTable || 'Table 1',
       notes: '',
     });
     setIsModalOpen(true);
@@ -83,13 +116,26 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
 
   const handleOpenEdit = (res: Reservation) => {
     setEditingRes(res);
+    let locId = '';
+    if (res.table_number && diningTables.length > 0) {
+      const match = diningTables.find(
+        (dt) => dt.table_number.toLowerCase() === res.table_number.toLowerCase()
+      );
+      if (match) {
+        locId = match.location_id;
+      }
+    }
+    if (!locId && seatingLocations.length > 0) {
+      locId = seatingLocations[0].id;
+    }
+    setSelectedResLocationId(locId);
     setFormData({
       customer_name: res.customer_name,
       customer_phone: res.customer_phone || '',
       party_size: res.party_size.toString(),
       reservation_date: res.reservation_date,
       reservation_time: res.reservation_time,
-      table_number: res.table_number || 'Table 1',
+      table_number: res.table_number || '',
       notes: res.notes || '',
     });
     setIsModalOpen(true);
@@ -162,18 +208,20 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
     }
   };
 
-  const tablesList = [
-    'Table 1',
-    'Table 2',
-    'Table 3',
-    'Table 4',
-    'Table 5',
-    'Table 6',
-    'Patio 1',
-    'Patio 2',
-    'Bar 1',
-    'Bar 2',
-  ];
+  const tablesList = diningTables.length > 0
+    ? diningTables.map((t) => t.table_number)
+    : [
+        'Table 1',
+        'Table 2',
+        'Table 3',
+        'Table 4',
+        'Table 5',
+        'Table 6',
+        'Patio 1',
+        'Patio 2',
+        'Bar 1',
+        'Bar 2',
+      ];
 
   const filtered = reservations.filter((r) => {
     if (statusFilter !== 'all' && r.status !== statusFilter) return false;
@@ -192,6 +240,13 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
   const confirmedCount = reservations.filter((r) => r.status === 'confirmed').length;
   const seatedCount = reservations.filter((r) => r.status === 'seated').length;
   const totalGuests = reservations.reduce((acc, r) => acc + (r.status !== 'cancelled' ? r.party_size : 0), 0);
+
+  const resLocationTables = diningTables.filter(
+    (dt) => dt.location_id === selectedResLocationId
+  );
+  const selectedTableObj = diningTables.find(
+    (dt) => dt.table_number.toLowerCase() === formData.table_number.toLowerCase()
+  );
 
   return (
     <div className="space-y-6">
@@ -298,47 +353,93 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
       {/* VIEW: TABLE FLOOR SCHEMATIC */}
       {viewMode === 'table_view' && (
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="font-heading font-bold text-slate-900 text-sm">
-              Dining Floor Table Availability ({selectedDate})
-            </h3>
-            <span className="text-xs text-slate-500">
-              Click any table to view bookings or book an arrival
-            </span>
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+            <div>
+              <h3 className="font-heading font-bold text-slate-900 text-sm">
+                Dining Floor Table Availability ({selectedDate})
+              </h3>
+              <span className="text-xs text-slate-500">
+                Live seating status, capacity, and reservations across dining locations
+              </span>
+            </div>
+
+            {seatingLocations.length > 0 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                <button
+                  type="button"
+                  onClick={() => setSelectedFloorLocation('all')}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                    selectedFloorLocation === 'all'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  All Zones
+                </button>
+                {seatingLocations.map((loc) => (
+                  <button
+                    key={loc.id}
+                    type="button"
+                    onClick={() => setSelectedFloorLocation(loc.id)}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition cursor-pointer whitespace-nowrap ${
+                      selectedFloorLocation === loc.id
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {loc.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-            {tablesList.map((tbl) => {
-              const tableRes = reservations.filter((r) => r.table_number === tbl);
-              const activeBooking = tableRes.find((r) => ['confirmed', 'seated'].includes(r.status));
-              const isSeated = activeBooking?.status === 'seated';
+            {tablesList
+              .filter((tbl) => {
+                if (selectedFloorLocation === 'all') return true;
+                const tblObj = diningTables.find((dt) => dt.table_number === tbl);
+                return tblObj ? tblObj.location_id === selectedFloorLocation : true;
+              })
+              .map((tbl) => {
+                const tableMeta = diningTables.find((dt) => dt.table_number === tbl);
+                const tableRes = reservations.filter((r) => r.table_number === tbl);
+                const activeBooking = tableRes.find((r) => ['confirmed', 'seated'].includes(r.status));
+                const isSeated = activeBooking?.status === 'seated';
 
-              return (
-                <div
-                  key={tbl}
-                  className={`p-4 rounded-xl border flex flex-col justify-between transition ${
-                    isSeated
-                      ? 'bg-emerald-50 border-emerald-300'
-                      : activeBooking
-                      ? 'bg-amber-50/80 border-amber-300'
-                      : 'bg-slate-50 border-slate-200 hover:border-slate-400'
-                  }`}
-                >
-                  <div>
-                    <div className="flex justify-between items-start">
-                      <span className="font-heading font-bold text-slate-900 text-sm">{tbl}</span>
-                      <span
-                        className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full ${
-                          isSeated
-                            ? 'bg-emerald-200 text-emerald-900'
-                            : activeBooking
-                            ? 'bg-amber-200 text-amber-900'
-                            : 'bg-slate-200 text-slate-600'
-                        }`}
-                      >
-                        {isSeated ? 'Seated' : activeBooking ? 'Reserved' : 'Open'}
-                      </span>
-                    </div>
+                return (
+                  <div
+                    key={tbl}
+                    className={`p-4 rounded-xl border flex flex-col justify-between transition ${
+                      isSeated
+                        ? 'bg-emerald-50 border-emerald-300'
+                        : activeBooking
+                        ? 'bg-amber-50/80 border-amber-300'
+                        : 'bg-slate-50 border-slate-200 hover:border-slate-400'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="font-heading font-bold text-slate-900 text-sm block">{tbl}</span>
+                          {tableMeta && (
+                            <span className="text-[10px] text-slate-500 font-medium">
+                              {tableMeta.seats} seats &bull; {tableMeta.location_name || 'General'}
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full ${
+                            isSeated
+                              ? 'bg-emerald-200 text-emerald-900'
+                              : activeBooking
+                              ? 'bg-amber-200 text-amber-900'
+                              : 'bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {isSeated ? 'Seated' : activeBooking ? 'Reserved' : 'Open'}
+                        </span>
+                      </div>
 
                     {activeBooking ? (
                       <div className="mt-2 text-xs space-y-1">
@@ -604,20 +705,73 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Assigned Table</label>
-                <select
-                  value={formData.table_number}
-                  onChange={(e) => setFormData({ ...formData, table_number: e.target.value })}
-                  className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 focus:ring-2 focus:ring-slate-900 focus:outline-hidden"
-                >
-                  {tablesList.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+              {/* Seating Location & Table Selection */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1 flex items-center gap-1.5 text-xs">
+                    <MapPin className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Seating Location / Zone</span>
+                  </label>
+                  <select
+                    value={selectedResLocationId}
+                    onChange={(e) => {
+                      const locId = e.target.value;
+                      setSelectedResLocationId(locId);
+                      const locTables = diningTables.filter((dt) => dt.location_id === locId);
+                      setFormData({
+                        ...formData,
+                        table_number: locTables.length > 0 ? locTables[0].table_number : '',
+                      });
+                    }}
+                    className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 focus:ring-2 focus:ring-slate-900 focus:outline-hidden text-sm font-medium"
+                  >
+                    <option value="">-- Select Location --</option>
+                    {seatingLocations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1 flex items-center gap-1.5 text-xs">
+                    <Armchair className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Assigned Table</span>
+                  </label>
+                  <select
+                    value={formData.table_number}
+                    disabled={!selectedResLocationId}
+                    onChange={(e) => setFormData({ ...formData, table_number: e.target.value })}
+                    className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 focus:ring-2 focus:ring-slate-900 focus:outline-hidden text-sm disabled:bg-slate-100 disabled:text-slate-400 font-medium"
+                  >
+                    {!selectedResLocationId ? (
+                      <option value="">-- Select location first --</option>
+                    ) : resLocationTables.length === 0 ? (
+                      <option value="">No tables in this location</option>
+                    ) : (
+                      <>
+                        <option value="">-- Select Table --</option>
+                        {resLocationTables.map((t) => (
+                          <option key={t.id} value={t.table_number}>
+                            {t.table_number} &bull; {t.seats} seats ({t.table_shape || 'standard'})
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                </div>
               </div>
+
+              {selectedTableObj && Number(formData.party_size) > selectedTableObj.seats && (
+                <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 flex items-center gap-2 text-xs text-amber-800">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>
+                    Warning: Party size ({formData.party_size} guests) exceeds standard capacity for{' '}
+                    <strong>{selectedTableObj.table_number}</strong> ({selectedTableObj.seats} seats).
+                  </span>
+                </div>
+              )}
 
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">

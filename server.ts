@@ -9,6 +9,7 @@ import staffRouter from './server/routes/staff.ts';
 import tipsRouter from './server/routes/tips.ts';
 import reservationsRouter from './server/routes/reservations.ts';
 import statsRouter from './server/routes/stats.ts';
+import seatingRouter from './server/routes/seating.ts';
 
 async function startServer() {
   // Initialize SQLite database
@@ -32,6 +33,7 @@ async function startServer() {
   app.use('/api/tips', tipsRouter);
   app.use('/api/reservations', reservationsRouter);
   app.use('/api/stats', statsRouter);
+  app.use('/api/seating', seatingRouter);
 
   // Vite middleware in development vs static serving in production
   if (process.env.NODE_ENV !== 'production') {

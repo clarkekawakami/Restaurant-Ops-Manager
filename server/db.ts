@@ -142,10 +142,11 @@ function initSchema(db: Database) {
     CREATE TABLE IF NOT EXISTS staff (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      role TEXT NOT NULL,
+      title TEXT NOT NULL,
       hourly_rate REAL NOT NULL,
       pin TEXT NOT NULL,
       is_active INTEGER DEFAULT 1,
+      admin_access INTEGER DEFAULT 0,
       created_at TEXT NOT NULL
     );
 
@@ -221,7 +222,62 @@ function initSchema(db: Database) {
       special_requests TEXT,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS seating_locations (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      display_order INTEGER DEFAULT 0,
+      description TEXT DEFAULT '',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS dining_tables (
+      id TEXT PRIMARY KEY,
+      location_id TEXT NOT NULL,
+      table_number TEXT NOT NULL,
+      seats INTEGER NOT NULL DEFAULT 4,
+      shape TEXT DEFAULT 'standard',
+      is_active INTEGER DEFAULT 1,
+      display_order INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (location_id) REFERENCES seating_locations(id) ON DELETE CASCADE
+    );
   `);
+
+  // Ensure seating_locations and dining_tables are initialized if empty
+  try {
+    const locCount = db.exec('SELECT COUNT(*) as cnt FROM seating_locations');
+    const hasLocs = locCount.length > 0 ? (locCount[0].values[0][0] as number) > 0 : false;
+    if (!hasLocs) {
+      const now = new Date().toISOString();
+      // 1. Insert Locations
+      db.run(`INSERT INTO seating_locations (id, name, display_order, description, created_at) VALUES
+        ('loc_main', 'Main Dining Room', 1, 'Central dining room with booths and standard tables', '${now}'),
+        ('loc_bar', 'Bar', 2, 'Cocktail bar counter stools and high-top perimeter tables', '${now}'),
+        ('loc_patio', 'Patio', 3, 'Outdoor garden terrace with umbrella tables', '${now}');
+      `);
+
+      // 2. Insert Tables for each location with seat capacities
+      db.run(`INSERT INTO dining_tables (id, location_id, table_number, seats, shape, is_active, display_order, created_at) VALUES
+        ('tbl_1', 'loc_main', 'Table 1', 2, 'standard', 1, 1, '${now}'),
+        ('tbl_2', 'loc_main', 'Table 2', 4, 'standard', 1, 2, '${now}'),
+        ('tbl_3', 'loc_main', 'Table 3', 4, 'booth', 1, 3, '${now}'),
+        ('tbl_4', 'loc_main', 'Table 4', 4, 'standard', 1, 4, '${now}'),
+        ('tbl_5', 'loc_main', 'Table 5', 6, 'booth', 1, 5, '${now}'),
+        ('tbl_6', 'loc_main', 'Table 6', 8, 'standard', 1, 6, '${now}'),
+        ('tbl_7', 'loc_bar', 'Bar 1', 2, 'bar', 1, 1, '${now}'),
+        ('tbl_8', 'loc_bar', 'Bar 2', 2, 'bar', 1, 2, '${now}'),
+        ('tbl_9', 'loc_bar', 'Bar 3', 2, 'bar', 1, 3, '${now}'),
+        ('tbl_10', 'loc_bar', 'High Top 1', 4, 'standard', 1, 4, '${now}'),
+        ('tbl_11', 'loc_patio', 'Patio 1', 4, 'outdoor', 1, 1, '${now}'),
+        ('tbl_12', 'loc_patio', 'Patio 2', 4, 'outdoor', 1, 2, '${now}'),
+        ('tbl_13', 'loc_patio', 'Patio 3', 6, 'outdoor', 1, 3, '${now}');
+      `);
+      console.log('Seeded initial seating locations (Main Dining Room, Bar, Patio) and dining tables');
+    }
+  } catch (err) {
+    console.error('Error initializing seating locations & dining tables:', err);
+  }
 
   // Migrate pantry_cost and labor_cost columns if they do not exist yet
   try {
@@ -338,6 +394,28 @@ function initSchema(db: Database) {
     console.error('Error initializing inventory_categories:', err);
   }
 
+  // Migrate staff table: rename/add title and add admin_access column if needed
+  try {
+    const staffInfo = db.exec("PRAGMA table_info(staff)");
+    if (staffInfo.length > 0) {
+      const colNames = staffInfo[0].values.map((v: any) => v[1]);
+      if (colNames.includes('role') && !colNames.includes('title')) {
+        db.run("ALTER TABLE staff RENAME COLUMN role TO title;");
+      } else if (!colNames.includes('title')) {
+        db.run("ALTER TABLE staff ADD COLUMN title TEXT DEFAULT 'staff';");
+        if (colNames.includes('role')) {
+          db.run("UPDATE staff SET title = role WHERE role IS NOT NULL;");
+        }
+      }
+      if (!colNames.includes('admin_access')) {
+        db.run("ALTER TABLE staff ADD COLUMN admin_access INTEGER DEFAULT 0;");
+        db.run("UPDATE staff SET admin_access = 1 WHERE title = 'manager' OR id = 'staff_6';");
+      }
+    }
+  } catch (err) {
+    console.error('Migration error for staff columns:', err);
+  }
+
   // Check if we need to seed
   const categoriesCount = db.exec('SELECT COUNT(*) as cnt FROM menu_categories');
   const count = categoriesCount.length > 0 ? categoriesCount[0].values[0][0] as number : 0;
@@ -393,13 +471,13 @@ function seedData(db: Database) {
   `);
 
   // 4. Staff members
-  db.run(`INSERT INTO staff (id, name, role, hourly_rate, pin, is_active, created_at) VALUES
-    ('staff_1', 'Elena Vasquez', 'server', 16.50, '1234', 1, '${now}'),
-    ('staff_2', 'Marcus Chen', 'server', 16.50, '2345', 1, '${now}'),
-    ('staff_3', 'Dave Miller', 'bartender', 18.00, '3456', 1, '${now}'),
-    ('staff_4', 'Chef Antonio Rossi', 'head_chef', 28.00, '4567', 1, '${now}'),
-    ('staff_5', 'Sarah Jenkins', 'host', 16.00, '5678', 1, '${now}'),
-    ('staff_6', 'Liam O''Connor', 'manager', 26.00, '9999', 1, '${now}');
+  db.run(`INSERT INTO staff (id, name, title, hourly_rate, pin, is_active, admin_access, created_at) VALUES
+    ('staff_1', 'Elena Vasquez', 'server', 16.50, '1234', 1, 0, '${now}'),
+    ('staff_2', 'Marcus Chen', 'server', 16.50, '2345', 1, 0, '${now}'),
+    ('staff_3', 'Dave Miller', 'bartender', 18.00, '3456', 1, 0, '${now}'),
+    ('staff_4', 'Chef Antonio Rossi', 'head_chef', 28.00, '4567', 1, 0, '${now}'),
+    ('staff_5', 'Sarah Jenkins', 'host', 16.00, '5678', 1, 0, '${now}'),
+    ('staff_6', 'Liam O''Connor', 'manager', 26.00, '9999', 1, 1, '${now}');
   `);
 
   // 5. Active and past shifts for Staff

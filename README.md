@@ -36,7 +36,18 @@ Built with **React 19**, **TypeScript**, **Tailwind CSS**, **Express**, and a pe
 - **Stock Audit & Adjustments**: Quick physical count adjustments and waste logging with historical audit trails.
 - **Manage Inventory Item Categories**: Create, edit, and delete dedicated inventory categories (Produce, Meat, Seafood, Dairy, Pantry, etc.) with automatic item cascade protection.
 
-### 4. Staff Shifts, Time Clock & Tip Management (`StaffModule`)
+### 4. Staff Shifts, Time Clock & Access Control (`StaffModule`)
+- **Role & Access Architecture**:
+  - Staff records use **`title`** (e.g., Manager, Head Chef, Server, Bartender, Host).
+  - Explicit **`admin_access`** boolean controls privileges to view and manage sensitive operations:
+    - Staff Roster, Wage Rates, and Staff Member Creation/Edits.
+    - Menu Item creation, modification, deletion, and Menu Item Categories.
+    - Inventory Stock adjustments, creation, deletion, and Inventory Item Categories.
+- **Admin Authorization Modal & Active User Switching**:
+  - When a non-admin user attempts an administrative action (or clicks on "Staff Roster & Wage Rates" or enters protected modules), an **Administrator Access Verification** modal opens.
+  - The modal displays a dropdown populated with all staff members where `admin_access = true`, and requires their 4-digit PIN.
+  - Verifying the PIN grants access and sets the active session user, while incorrect PINs trigger clear validation feedback.
+  - Users can switch active staff profiles on-the-fly from the top navigation bar.
 - **PIN-Protected Time Clock**: Fast staff punch-in and punch-out using 4-digit employee PINs.
 - **Active Shift Tracking**: Live monitoring of clocked-in team members, active shift duration, and earned wages.
 - **Tip Pooling Engine**: Collects credit card and cash tips from completed tickets, computes shift hours worked by eligible team members, and distributes tip pools proportionally.
@@ -45,6 +56,11 @@ Built with **React 19**, **TypeScript**, **Tailwind CSS**, **Express**, and a pe
 ### 5. Table Reservations & Seating (`ReservationsModule`)
 - **Reservation Book**: Schedule guest bookings with party size, contact info, requested times, and special dietary/occasion notes.
 - **One-Click Seating**: Transition reservations directly from booked status to active dining tables, automatically opening an active POS order ticket for the party.
+
+### 6. Terminal Theme Context & Low-Light Accessibility
+- **`ThemeProvider` & Context API**: Global theme state (`'light' | 'dark'`) wrapped around the root application with persistent `localStorage` storage and OS `prefers-color-scheme` fallback.
+- **Terminal Low-Light Optimization**: One-click quick toggle button in the navigation header (`#btn-theme-toggle`) designed specifically for busy, low-light restaurant environments (e.g., dimly lit dining rooms, nighttime bar service, and evening kitchen stations).
+- **High-Contrast Dark Aesthetic**: Deep obsidian/slate canvas (`#090d16` / `#0f172a`), WCAG AA compliant typography, custom low-glare status badges (emerald, amber, rose, blue), dark scrollbars, and high-visibility input fields.
 
 ---
 
@@ -121,39 +137,47 @@ http://localhost:3000
 
 On its initial launch, the system automatically provisions sample data so you can test all workflows immediately:
 
-### Staff PINs (for Time Clock Testing)
+### Staff Profiles, Titles & Admin Access
 
-| Staff Name | Role | 4-Digit PIN | Hourly Rate |
-| :--- | :--- | :--- | :--- |
-| **Elena Vasquez** | Server | `1234` | $16.50 / hr |
-| **Marcus Chen** | Server | `2345` | $16.50 / hr |
-| **Dave Miller** | Bartender | `3456` | $18.00 / hr |
-| **Chef Antonio Rossi** | Head Chef | `4567` | $28.00 / hr |
-| **Sarah Jenkins** | Host | `5678` | $16.00 / hr |
-| **Liam O'Connor** | Manager | `9999` | $26.00 / hr |
+| Staff Name | Title | Admin Access | 4-Digit PIN | Hourly Rate |
+| :--- | :--- | :--- | :--- | :--- |
+| **Liam O'Connor** | General Manager | **Yes (`admin_access = true`)** | `9999` | $26.00 / hr |
+| **Chef Antonio Rossi** | Head Chef | **Yes (`admin_access = true`)** | `4567` | $28.00 / hr |
+| **Elena Vasquez** | Head Server | No | `1234` | $16.50 / hr |
+| **Marcus Chen** | Server | No | `2345` | $16.50 / hr |
+| **Dave Miller** | Bartender | No | `3456` | $18.00 / hr |
+| **Sarah Jenkins** | Host | No | `5678` | $16.00 / hr |
 
 ### Quick Testing Walkthrough
 
-1. **Test Order Entry & POS Checkout**:
+1. **Test User Switching & Admin Access Control**:
+   - In the top navigation bar, check the current active user badge.
+   - Click **Switch User** or select **Elena Vasquez** (non-admin, PIN `1234`).
+   - Now click on **Staff & Shifts** $\rightarrow$ **Staff Roster & Wage Rates**, or try to access **Menu Items** or **Inventory**.
+   - An **Administrator Access Verification** modal appears.
+   - Select **Liam O'Connor** from the authorized administrators dropdown and enter PIN **`9999`**.
+   - Entering an incorrect PIN will display an error message. Entering `9999` approves the action, switches active user, and unlocks the section.
+2. **Test Order Entry & POS Checkout**:
    - Go to **Floor & Orders**. Select Table 4 (Occupied) or an Available table.
    - Add dishes from the menu catalog on the left into the ticket.
    - Click **Pay with Terminal** to simulate an EMV credit card transaction with tip presets, or select **Pay with Cash** to calculate exact change.
-2. **Test Recipe Costing & Inventory Linking**:
+3. **Test Menu Recipe Costing & Inventory Linking**:
    - Go to **Menu Items**.
    - Click **Add Menu Item**.
    - Type in the **"Driver Name / Component"** field: type at least 3 letters (e.g. `Rib`, `Sal`, `Salm`, or `Tru`) to trigger the debounced inventory search.
    - Select a linked SKU or use **+ Create New Inventory SKU** to register a fresh ingredient without leaving the form.
    - Click **Manage Menu Item Categories** to add or remove dish categories.
-3. **Test Inventory Categories**:
+4. **Test Inventory Categories & Stock Management**:
    - Go to **Inventory**.
-   - Click **Manage Inventory Item Categories** to create or delete inventory categories (e.g., Bakery, Dairy, Produce, Seafood).
+   - Click **Manage Inventory Item Categories** to create, view counts, or delete inventory categories (persisted in SQLite).
    - Filter items by category or search by ingredient/supplier.
-4. **Test Staff Shifts & Tip Export**:
+   - Click **Adjust** to log waste or restock with an audit trail note.
+5. **Test Staff Shifts & Tip Export**:
    - Go to **Staff & Shifts**.
    - Click **Clock In / Out** in the top navigation or Staff tab using PIN `1234` or `9999`.
    - Complete an order in the POS with a card tip, then check **Staff Tip Management & Pooling** to observe the proportional tip distribution.
    - Click **Export Payroll CSV** to review the generated pay period spreadsheet.
-5. **Test Reservations to Floor Seating**:
+6. **Test Reservations to Floor Seating**:
    - Go to **Reservations**.
    - Book a party or click **Seat Guests** on an existing booking to seat them at a table and immediately open their POS order ticket.
 

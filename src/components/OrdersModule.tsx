@@ -17,8 +17,10 @@ import {
   Utensils,
   AlertCircle,
   Sparkles,
+  MapPin,
+  Armchair,
 } from 'lucide-react';
-import { Order, MenuItem, MenuCategory, StaffMember, OrderStatus } from '../types.ts';
+import { Order, MenuItem, MenuCategory, StaffMember, OrderStatus, DiningTable, SeatingLocation } from '../types.ts';
 import { api } from '../lib/api.ts';
 import { PaymentModal } from './PaymentModal.tsx';
 import { ReceiptModal } from './ReceiptModal.tsx';
@@ -38,6 +40,9 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
   const [orders, setOrders] = useState<Order[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [diningTables, setDiningTables] = useState<DiningTable[]>([]);
+  const [seatingLocations, setSeatingLocations] = useState<SeatingLocation[]>([]);
+  const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // New Order State
@@ -70,23 +75,48 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
   }, []);
 
   useEffect(() => {
-    if (preselectedTable) {
+    if (preselectedTable && diningTables.length > 0) {
       setTableNumber(preselectedTable);
+      const match = diningTables.find(
+        (dt) => dt.table_number.toLowerCase() === preselectedTable.toLowerCase()
+      );
+      if (match) {
+        setSelectedLocationId(match.location_id);
+        if (match.seats) setGuestCount(match.seats);
+      }
       setSubView('create');
+    } else if (!selectedLocationId && seatingLocations.length > 0) {
+      const match = diningTables.find(
+        (dt) => dt.table_number.toLowerCase() === tableNumber.toLowerCase()
+      );
+      if (match) {
+        setSelectedLocationId(match.location_id);
+      } else {
+        setSelectedLocationId(seatingLocations[0].id);
+        const locTables = diningTables.filter((dt) => dt.location_id === seatingLocations[0].id);
+        if (locTables.length > 0 && (!tableNumber || tableNumber === 'Table 1')) {
+          setTableNumber(locTables[0].table_number);
+          if (locTables[0].seats) setGuestCount(locTables[0].seats);
+        }
+      }
     }
-  }, [preselectedTable]);
+  }, [preselectedTable, diningTables, seatingLocations]);
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [fetchedOrders, fetchedItems, fetchedCats] = await Promise.all([
+      const [fetchedOrders, fetchedItems, fetchedCats, fetchedTables, fetchedLocations] = await Promise.all([
         api.getOrders(),
         api.getMenuItems(),
         api.getCategories(),
+        api.getDiningTables().catch(() => []),
+        api.getSeatingLocations().catch(() => []),
       ]);
       setOrders(fetchedOrders);
       setMenuItems(fetchedItems);
       setCategories(fetchedCats);
+      setDiningTables(fetchedTables);
+      setSeatingLocations(fetchedLocations);
       if (staffList.length > 0 && !assignedServerId) {
         setAssignedServerId(staffList[0].id);
       }
@@ -145,10 +175,11 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
 
   const handleCreateOrder = async () => {
     if (cartItems.length === 0) return;
+    const finalTable = tableNumber.trim() || (orderType === 'takeout' ? 'Takeout' : 'Table 1');
     try {
       await api.createOrder({
         order_type: orderType,
-        table_number: tableNumber,
+        table_number: finalTable,
         guest_count: guestCount,
         server_id: assignedServerId || null,
         items: cartItems,
@@ -208,6 +239,11 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
     .filter((o) => o.payment_method === 'card_terminal')
     .reduce((acc, o) => acc + o.total, 0);
   const totalTipsCollected = filteredCompleted.reduce((acc, o) => acc + o.tip, 0);
+
+  // Filtered tables for selected seating location
+  const availableTablesForLocation = diningTables.filter(
+    (dt) => dt.location_id === selectedLocationId
+  );
 
   // Filtered menu items
   const filteredMenuItems = menuItems.filter((item) => {
@@ -531,59 +567,153 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
                   </span>
                 </div>
 
-                {/* Table, Type & Server Selection */}
-                <div className="grid grid-cols-3 gap-2 text-xs">
+                {/* Order Type, Location, Table & Server Selection */}
+                <div className="space-y-2.5 text-xs">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-400 font-medium mb-1">Order Type</label>
+                      <select
+                        value={orderType}
+                        onChange={(e: any) => {
+                          const newType = e.target.value;
+                          setOrderType(newType);
+                          if (newType === 'takeout') {
+                            setTableNumber('Takeout');
+                          } else if (newType === 'bar') {
+                            const barLoc = seatingLocations.find((l) => l.name.toLowerCase().includes('bar'));
+                            if (barLoc) {
+                              setSelectedLocationId(barLoc.id);
+                              const barTables = diningTables.filter((dt) => dt.location_id === barLoc.id);
+                              if (barTables.length > 0) {
+                                setTableNumber(barTables[0].table_number);
+                                if (barTables[0].seats) setGuestCount(barTables[0].seats);
+                              }
+                            }
+                          } else if (tableNumber === 'Takeout') {
+                            const locTables = diningTables.filter((dt) => dt.location_id === selectedLocationId);
+                            if (locTables.length > 0) {
+                              setTableNumber(locTables[0].table_number);
+                              if (locTables[0].seats) setGuestCount(locTables[0].seats);
+                            } else if (diningTables.length > 0) {
+                              setTableNumber(diningTables[0].table_number);
+                              setSelectedLocationId(diningTables[0].location_id);
+                            }
+                          }
+                        }}
+                        className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-400"
+                      >
+                        <option value="dine_in">Dine-In</option>
+                        <option value="bar">Bar Tab</option>
+                        <option value="takeout">Takeout</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-slate-400 font-medium mb-1">Guests</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={guestCount}
+                        onChange={(e) => setGuestCount(Number(e.target.value))}
+                        className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-400 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Seating Location & Table Dropdowns */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-400 font-medium mb-1 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-amber-400" />
+                        Seating Location
+                      </label>
+                      <select
+                        value={selectedLocationId}
+                        onChange={(e) => {
+                          const locId = e.target.value;
+                          setSelectedLocationId(locId);
+                          const locTables = diningTables.filter((dt) => dt.location_id === locId);
+                          if (locTables.length > 0) {
+                            setTableNumber(locTables[0].table_number);
+                            if (locTables[0].seats) {
+                              setGuestCount(locTables[0].seats);
+                            }
+                          } else {
+                            setTableNumber('');
+                          }
+                        }}
+                        className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-400 font-medium truncate"
+                      >
+                        <option value="">-- Select Location --</option>
+                        {seatingLocations.map((loc) => (
+                          <option key={loc.id} value={loc.id}>
+                            {loc.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-slate-400 font-medium mb-1 flex items-center gap-1">
+                        <Armchair className="w-3 h-3 text-amber-400" />
+                        Assigned Table
+                      </label>
+                      <select
+                        value={tableNumber}
+                        disabled={!selectedLocationId && orderType !== 'takeout'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTableNumber(val);
+                          const match = diningTables.find(
+                            (dt) => dt.table_number.toLowerCase() === val.toLowerCase()
+                          );
+                          if (match && match.seats) {
+                            setGuestCount(match.seats);
+                          }
+                        }}
+                        className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-400 font-medium disabled:opacity-50 disabled:cursor-not-allowed truncate"
+                      >
+                        {!selectedLocationId && orderType !== 'takeout' ? (
+                          <option value="">-- Select location first --</option>
+                        ) : availableTablesForLocation.length === 0 ? (
+                          orderType === 'takeout' ? (
+                            <option value="Takeout">Takeout / Counter</option>
+                          ) : (
+                            <option value="">No tables configured</option>
+                          )
+                        ) : (
+                          <>
+                            <option value="">-- Select Table --</option>
+                            {availableTablesForLocation.map((dt) => (
+                              <option key={dt.id} value={dt.table_number}>
+                                {dt.table_number} ({dt.seats} seats)
+                              </option>
+                            ))}
+                            {orderType === 'takeout' && (
+                              <option value="Takeout">Takeout / Counter</option>
+                            )}
+                          </>
+                        )}
+                      </select>
+                    </div>
+                  </div>
+
                   <div>
-                    <label className="block text-[10px] text-slate-400 font-medium mb-1">Type</label>
+                    <label className="block text-[10px] text-slate-400 font-medium mb-1">Server Assigned</label>
                     <select
-                      value={orderType}
-                      onChange={(e: any) => setOrderType(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs focus:ring-1 focus:ring-amber-400"
+                      value={assignedServerId}
+                      onChange={(e) => setAssignedServerId(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-400"
                     >
-                      <option value="dine_in">Dine-In</option>
-                      <option value="takeout">Takeout</option>
-                      <option value="bar">Bar Tab</option>
+                      <option value="">-- Select Server --</option>
+                      {staffList.map((st) => (
+                        <option key={st.id} value={st.id}>
+                          {st.name} ({st.title || st.role})
+                        </option>
+                      ))}
                     </select>
                   </div>
-
-                  <div>
-                    <label className="block text-[10px] text-slate-400 font-medium mb-1">Table / Ref</label>
-                    <input
-                      type="text"
-                      value={tableNumber}
-                      onChange={(e) => setTableNumber(e.target.value)}
-                      placeholder="Table #"
-                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs focus:ring-1 focus:ring-amber-400 font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-slate-400 font-medium mb-1">Guests</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="30"
-                      value={guestCount}
-                      onChange={(e) => setGuestCount(Number(e.target.value))}
-                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs focus:ring-1 focus:ring-amber-400 font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] text-slate-400 font-medium mb-1">Server Assigned</label>
-                  <select
-                    value={assignedServerId}
-                    onChange={(e) => setAssignedServerId(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs focus:ring-1 focus:ring-amber-400"
-                  >
-                    <option value="">-- Select Server --</option>
-                    {staffList.map((st) => (
-                      <option key={st.id} value={st.id}>
-                        {st.name} ({st.role})
-                      </option>
-                    ))}
-                  </select>
                 </div>
               </div>
 

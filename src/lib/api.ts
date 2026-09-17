@@ -11,6 +11,9 @@ import {
   Order,
   Reservation,
   DashboardStats,
+  SeatingLocation,
+  DiningTable,
+  SeatingPlanOverview,
 } from '../types.ts';
 
 const jsonHeaders = { 'Content-Type': 'application/json' };
@@ -226,7 +229,7 @@ export const api = {
     if (!res.ok) throw new Error('Failed to fetch staff');
     return res.json();
   },
-  createStaff: async (data: { name: string; role: string; hourly_rate: number; pin: string }): Promise<StaffMember> => {
+  createStaff: async (data: { name: string; title: string; role?: string; hourly_rate: number; pin: string; admin_access?: boolean }): Promise<StaffMember> => {
     const res = await fetch('/api/staff', {
       method: 'POST',
       headers: jsonHeaders,
@@ -242,6 +245,18 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Failed to update staff member');
+    return res.json();
+  },
+  verifyAdmin: async (staff_id: string, pin: string): Promise<{ success: boolean; staff: StaffMember }> => {
+    const res = await fetch('/api/staff/verify-admin', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ staff_id, pin }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to verify admin credentials');
+    }
     return res.json();
   },
   clockIn: async (staff_id: string, pin?: string, notes?: string): Promise<TimeShift> => {
@@ -391,5 +406,104 @@ export const api = {
   deleteReservation: async (id: string): Promise<void> => {
     const res = await fetch(`/api/reservations/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to delete reservation');
+  },
+
+  // Seating & Floor Plan
+  getSeatingLocations: async (): Promise<SeatingLocation[]> => {
+    const res = await fetch('/api/seating/locations');
+    if (!res.ok) throw new Error('Failed to fetch seating locations');
+    return res.json();
+  },
+  createSeatingLocation: async (data: { name: string; display_order?: number; description?: string }): Promise<SeatingLocation> => {
+    const res = await fetch('/api/seating/locations', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to create seating location');
+    }
+    return res.json();
+  },
+  updateSeatingLocation: async (id: string, data: { name?: string; display_order?: number; description?: string }): Promise<SeatingLocation> => {
+    const res = await fetch(`/api/seating/locations/${id}`, {
+      method: 'PUT',
+      headers: jsonHeaders,
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to update seating location');
+    }
+    return res.json();
+  },
+  deleteSeatingLocation: async (id: string): Promise<void> => {
+    const res = await fetch(`/api/seating/locations/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to delete seating location');
+    }
+  },
+
+  getDiningTables: async (locationId?: string): Promise<DiningTable[]> => {
+    const url = locationId ? `/api/seating/tables?location_id=${encodeURIComponent(locationId)}` : '/api/seating/tables';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Failed to fetch dining tables');
+    return res.json();
+  },
+  createDiningTable: async (data: {
+    location_id: string;
+    table_number: string;
+    seats: number;
+    shape?: string;
+    is_active?: boolean | number;
+    display_order?: number;
+  }): Promise<DiningTable> => {
+    const res = await fetch('/api/seating/tables', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to create dining table');
+    }
+    return res.json();
+  },
+  updateDiningTable: async (
+    id: string,
+    data: {
+      location_id?: string;
+      table_number?: string;
+      seats?: number;
+      shape?: string;
+      is_active?: boolean | number;
+      display_order?: number;
+    }
+  ): Promise<DiningTable> => {
+    const res = await fetch(`/api/seating/tables/${id}`, {
+      method: 'PUT',
+      headers: jsonHeaders,
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to update dining table');
+    }
+    return res.json();
+  },
+  deleteDiningTable: async (id: string): Promise<void> => {
+    const res = await fetch(`/api/seating/tables/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to delete dining table');
+    }
+  },
+
+  getSeatingPlan: async (): Promise<SeatingPlanOverview> => {
+    const res = await fetch('/api/seating/plan');
+    if (!res.ok) throw new Error('Failed to fetch seating plan');
+    return res.json();
   },
 };

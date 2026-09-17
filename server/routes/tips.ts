@@ -8,7 +8,7 @@ router.get('/', (req, res) => {
   try {
     const { from_date, to_date, staff_id } = req.query;
     let sql = `
-      SELECT t.*, s.name as staff_name, s.role as staff_role
+      SELECT t.*, s.name as staff_name, s.title as staff_title, s.title as staff_role
       FROM tips t
       LEFT JOIN staff s ON t.staff_id = s.id
       WHERE 1=1
@@ -67,7 +67,7 @@ router.post('/', (req, res) => {
     );
 
     const created = get(`
-      SELECT t.*, s.name as staff_name, s.role as staff_role
+      SELECT t.*, s.name as staff_name, s.title as staff_title, s.title as staff_role
       FROM tips t
       LEFT JOIN staff s ON t.staff_id = s.id
       WHERE t.id = ?
@@ -92,7 +92,7 @@ router.post('/distribute-pool', (req, res) => {
 
     // Find shifts on this date
     let shiftsSql = `
-      SELECT ts.*, s.name as staff_name, s.role
+      SELECT ts.*, s.name as staff_name, s.title as staff_title, s.title as staff_role, s.title as role
       FROM time_shifts ts
       JOIN staff s ON ts.staff_id = s.id
       WHERE ts.clock_in LIKE ?
@@ -230,7 +230,8 @@ router.get('/payroll-summary', (req, res) => {
       return {
         staff_id: st.id,
         staff_name: st.name,
-        role: st.role,
+        title: st.title || st.role,
+        role: st.title || st.role,
         hourly_rate: Number(st.hourly_rate),
         total_hours: Math.round(totalHours * 100) / 100,
         base_wages: baseWages,
@@ -281,7 +282,7 @@ router.get('/payroll-csv', (req, res) => {
     const headers = [
       'Employee ID',
       'Employee Name',
-      'Job Role',
+      'Job Title',
       'Hourly Rate',
       'Regular Hours',
       'Base Pay',
@@ -313,7 +314,7 @@ router.get('/payroll-csv', (req, res) => {
       return [
         `"${st.id}"`,
         `"${st.name}"`,
-        `"${st.role}"`,
+        `"${st.title || st.role}"`,
         st.hourly_rate.toFixed(2),
         totalHours.toFixed(2),
         baseWages.toFixed(2),

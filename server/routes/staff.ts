@@ -15,7 +15,10 @@ router.get('/', (req, res) => {
 
     res.json(staff.map((s: any) => ({
       ...s,
+      title: s.title || s.role || 'staff',
+      role: s.title || s.role || 'staff',
       is_active: Boolean(s.is_active),
+      admin_access: Boolean(s.admin_access),
     })));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -24,21 +27,28 @@ router.get('/', (req, res) => {
 
 router.post('/', (req, res) => {
   try {
-    const { name, role, hourly_rate, pin } = req.body;
-    if (!name || !role || hourly_rate === undefined) {
-      return res.status(400).json({ error: 'Name, role, and hourly rate are required' });
+    const { name, title, role, hourly_rate, pin, admin_access } = req.body;
+    const staffTitle = title || role;
+    if (!name || !staffTitle || hourly_rate === undefined) {
+      return res.status(400).json({ error: 'Name, title, and hourly rate are required' });
     }
     const id = 'staff_' + Date.now();
     const now = new Date().toISOString();
 
     run(
-      `INSERT INTO staff (id, name, role, hourly_rate, pin, is_active, created_at)
-       VALUES (?, ?, ?, ?, ?, 1, ?)`,
-      [id, name, role, Number(hourly_rate), pin || '1234', now]
+      `INSERT INTO staff (id, name, title, hourly_rate, pin, is_active, admin_access, created_at)
+       VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
+      [id, name, staffTitle, Number(hourly_rate), pin || '1234', admin_access ? 1 : 0, now]
     );
 
     const created = get('SELECT * FROM staff WHERE id = ?', [id]);
-    res.status(201).json({ ...created, is_active: true });
+    res.status(201).json({
+      ...created,
+      title: created.title,
+      role: created.title,
+      is_active: true,
+      admin_access: Boolean(created.admin_access),
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -46,15 +56,66 @@ router.post('/', (req, res) => {
 
 router.put('/:id', (req, res) => {
   try {
-    const { name, role, hourly_rate, pin, is_active } = req.body;
+    const { name, title, role, hourly_rate, pin, is_active, admin_access } = req.body;
+    const existing = get('SELECT * FROM staff WHERE id = ?', [req.params.id]);
+    if (!existing) return res.status(404).json({ error: 'Staff member not found' });
+
+    const staffTitle = title !== undefined ? title : (role !== undefined ? role : existing.title);
+
     run(
       `UPDATE staff
-       SET name = ?, role = ?, hourly_rate = ?, pin = ?, is_active = ?
+       SET name = ?, title = ?, hourly_rate = ?, pin = ?, is_active = ?, admin_access = ?
        WHERE id = ?`,
-      [name, role, Number(hourly_rate), pin, is_active ? 1 : 0, req.params.id]
+      [
+        name ?? existing.name,
+        staffTitle,
+        hourly_rate !== undefined ? Number(hourly_rate) : existing.hourly_rate,
+        pin ?? existing.pin,
+        is_active !== undefined ? (is_active ? 1 : 0) : existing.is_active,
+        admin_access !== undefined ? (admin_access ? 1 : 0) : (existing.admin_access ?? 0),
+        req.params.id
+      ]
     );
     const updated = get('SELECT * FROM staff WHERE id = ?', [req.params.id]);
-    res.json({ ...updated, is_active: Boolean(updated.is_active) });
+    res.json({
+      ...updated,
+      title: updated.title,
+      role: updated.title,
+      is_active: Boolean(updated.is_active),
+      admin_access: Boolean(updated.admin_access),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Verify Administrator Credentials
+router.post('/verify-admin', (req, res) => {
+  try {
+    const { staff_id, pin } = req.body;
+    if (!staff_id || !pin) {
+      return res.status(400).json({ error: 'Staff member ID and PIN code are required' });
+    }
+    const staff = get('SELECT * FROM staff WHERE id = ?', [staff_id]);
+    if (!staff) {
+      return res.status(404).json({ error: 'Staff member not found' });
+    }
+    if (!Boolean(staff.admin_access)) {
+      return res.status(403).json({ error: 'Selected staff member does not have administrator access' });
+    }
+    if (String(staff.pin) !== String(pin).trim()) {
+      return res.status(401).json({ error: 'Invalid PIN for selected administrator' });
+    }
+    res.json({
+      success: true,
+      staff: {
+        ...staff,
+        title: staff.title || staff.role,
+        role: staff.title || staff.role,
+        is_active: Boolean(staff.is_active),
+        admin_access: Boolean(staff.admin_access),
+      }
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -87,7 +148,7 @@ router.post('/clock-in', (req, res) => {
     );
 
     const createdShift = get(`
-      SELECT ts.*, s.name as staff_name, s.role as staff_role, s.hourly_rate
+      SELECT ts.*, s.name as staff_name, s.title as staff_title, s.title as staff_role, s.hourly_rate
       FROM time_shifts ts
       JOIN staff s ON ts.staff_id = s.id
       WHERE ts.id = ?
@@ -132,7 +193,7 @@ router.post('/clock-out', (req, res) => {
     );
 
     const updated = get(`
-      SELECT ts.*, s.name as staff_name, s.role as staff_role, s.hourly_rate
+      SELECT ts.*, s.name as staff_name, s.title as staff_title, s.title as staff_role, s.hourly_rate
       FROM time_shifts ts
       JOIN staff s ON ts.staff_id = s.id
       WHERE ts.id = ?
@@ -149,7 +210,7 @@ router.get('/shifts', (req, res) => {
   try {
     const { status, staff_id, from_date, to_date } = req.query;
     let sql = `
-      SELECT ts.*, s.name as staff_name, s.role as staff_role, s.hourly_rate
+      SELECT ts.*, s.name as staff_name, s.title as staff_title, s.title as staff_role, s.hourly_rate
       FROM time_shifts ts
       JOIN staff s ON ts.staff_id = s.id
       WHERE 1=1
@@ -207,7 +268,7 @@ router.post('/shifts/manual', (req, res) => {
     );
 
     const created = get(`
-      SELECT ts.*, s.name as staff_name, s.role as staff_role, s.hourly_rate
+      SELECT ts.*, s.name as staff_name, s.title as staff_title, s.title as staff_role, s.hourly_rate
       FROM time_shifts ts
       JOIN staff s ON ts.staff_id = s.id
       WHERE ts.id = ?
@@ -250,7 +311,7 @@ router.put('/shifts/:id', (req, res) => {
     );
 
     const updated = get(`
-      SELECT ts.*, s.name as staff_name, s.role as staff_role, s.hourly_rate
+      SELECT ts.*, s.name as staff_name, s.title as staff_title, s.title as staff_role, s.hourly_rate
       FROM time_shifts ts
       JOIN staff s ON ts.staff_id = s.id
       WHERE ts.id = ?

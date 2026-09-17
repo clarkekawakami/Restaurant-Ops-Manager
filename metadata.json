@@ -1,6 +1,6 @@
 {
   "name": "Restaurant Operations Manager",
-  "description": "Full-stack restaurant operations platform with SQLite persistence, order management with cash and card terminal payments, menu and inventory tracking, staff shifts and tip tracking for external payroll, and table reservations.",
+  "description": "Full-stack restaurant operations platform with SQLite persistence, configurable seating locations and tables, POS order management with cash and card terminal payments, inventory tracking, staff shifts and tip tracking for external payroll, and reservations.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
