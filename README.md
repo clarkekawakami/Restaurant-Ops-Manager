@@ -97,7 +97,7 @@ Follow these steps to run the application on your local machine.
 
 ```bash
 git clone https://github.com/clarkekawakami/Restaurant-Ops-Manager.git
-cd Restaurant-Ops-Manager.git
+cd Restaurant-Ops-Manager
 ```
 
 ### 2. Install Dependencies
