@@ -171,4 +171,32 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   background: #475569;
 }
 
+/* Staff Clock-In / PIN high-contrast buttons in dark mode */
+html.dark #btn-quick-clock,
+html.dark #btn-pos-clock-in,
+html.dark .btn-quick-clock {
+  background-color: #f59e0b !important;
+  color: #020617 !important;
+  border-color: #fbbf24 !important;
+}
+
+html.dark #btn-quick-clock:hover,
+html.dark #btn-pos-clock-in:hover,
+html.dark .btn-quick-clock:hover {
+  background-color: #fbbf24 !important;
+  color: #020617 !important;
+}
+
+html.dark #btn-quick-clock svg,
+html.dark #btn-pos-clock-in svg,
+html.dark .btn-quick-clock svg {
+  color: #020617 !important;
+}
+
+html.dark #btn-quick-clock span,
+html.dark #btn-pos-clock-in span,
+html.dark .btn-quick-clock span {
+  color: #020617 !important;
+}
+
 

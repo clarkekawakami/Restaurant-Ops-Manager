@@ -19,22 +19,28 @@ import {
   Sparkles,
   MapPin,
   Armchair,
+  CircleDot,
 } from 'lucide-react';
 import { Order, MenuItem, MenuCategory, StaffMember, OrderStatus, DiningTable, SeatingLocation } from '../types.ts';
 import { api } from '../lib/api.ts';
 import { PaymentModal } from './PaymentModal.tsx';
 import { ReceiptModal } from './ReceiptModal.tsx';
+import { BusinessProfile } from '../types.ts';
 
 interface OrdersModuleProps {
   staffList: StaffMember[];
   onStatsRefresh: () => void;
   preselectedTable?: string | null;
+  onOpenQuickClockIn?: () => void;
+  profile?: BusinessProfile | null;
 }
 
 export const OrdersModule: React.FC<OrdersModuleProps> = ({
   staffList,
   onStatsRefresh,
   preselectedTable,
+  onOpenQuickClockIn,
+  profile,
 }) => {
   const [subView, setSubView] = useState<'active' | 'create' | 'history'>('active');
   const [orders, setOrders] = useState<Order[]>([]);
@@ -262,20 +268,20 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
   return (
     <div className="space-y-6">
       {/* Sub-navigation Controls */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-        <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
           <button
             id="tab-active-tickets"
             onClick={() => setSubView('active')}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
               subView === 'active'
-                ? 'bg-white text-slate-900 shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
             <span>Active Tickets</span>
-            <span className="ml-1 px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 text-[10px]">
+            <span className="ml-1 px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px]">
               {activeOrders.length}
             </span>
           </button>
@@ -285,8 +291,8 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
             onClick={() => setSubView('create')}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
               subView === 'create'
-                ? 'bg-slate-900 text-white shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-slate-900 dark:bg-amber-500 text-white dark:text-slate-950 shadow-2xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -298,8 +304,8 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
             onClick={() => setSubView('history')}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
               subView === 'history'
-                ? 'bg-white text-slate-900 shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Receipt className="w-3.5 h-3.5" />
@@ -307,11 +313,22 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-slate-500">
-          <span className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+          <span className="hidden md:flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             Cash & Standalone Card Station Active
           </span>
+          {onOpenQuickClockIn && (
+            <button
+              id="btn-pos-clock-in"
+              onClick={onOpenQuickClockIn}
+              className="btn-quick-clock inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 dark:bg-amber-400 dark:hover:bg-amber-300 dark:text-slate-950 transition cursor-pointer shadow-xs border border-amber-600/30 dark:border-amber-400"
+              title="Open Staff Clock-In / PIN Terminal"
+            >
+              <CircleDot className="w-3.5 h-3.5 text-slate-950 shrink-0" />
+              <span>Staff Clock-In / PIN</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -986,6 +1003,7 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
         <ReceiptModal
           order={viewingReceiptOrder}
           onClose={() => setViewingReceiptOrder(null)}
+          profile={profile}
         />
       )}
     </div>

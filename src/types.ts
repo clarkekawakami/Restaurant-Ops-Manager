@@ -251,3 +251,53 @@ export type AppStats = DashboardStats & {
   cardSales?: number;
   lowStockCount?: number;
 };
+
+export interface BusinessProfile {
+  id: string;
+  business_name: string;
+  tagline: string;
+  logo_url?: string;
+  logo_icon: string; // 'utensils' | 'chef-hat' | 'flame' | 'wine' | 'coffee' | 'pizza' | 'beer' | 'store'
+  phone: string;
+  email: string;
+  address: string;
+  receipt_footer: string;
+  tax_rate: number;
+  currency_symbol: string;
+  database_mode: 'demo' | 'minimal';
+  setup_completed: number | boolean;
+  updated_at: string;
+}
+
+export interface DatabaseStatus {
+  profile: BusinessProfile;
+  database_mode: 'demo' | 'minimal';
+  counts: {
+    menuItems: number;
+    menuCategories: number;
+    staff: number;
+    orders: number;
+    tables: number;
+    inventoryItems: number;
+  };
+}
+
+export interface ReinitializeOptions {
+  mode: 'demo' | 'minimal';
+  branding?: {
+    business_name: string;
+    tagline?: string;
+    logo_url?: string;
+    logo_icon?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    receipt_footer?: string;
+    tax_rate?: number;
+    currency_symbol?: string;
+  };
+  adminUser?: {
+    name: string;
+    pin: string;
+  };
+}

@@ -8,7 +8,8 @@ import { ReservationsModule } from './components/ReservationsModule.tsx';
 import { SeatingModule } from './components/SeatingModule.tsx';
 import { SwitchUserModal } from './components/SwitchUserModal.tsx';
 import { AdminAuthModal } from './components/AdminAuthModal.tsx';
-import { StaffMember, AppStats } from './types.ts';
+import { SettingsAndBrandingModal } from './components/SettingsAndBrandingModal.tsx';
+import { StaffMember, AppStats, BusinessProfile } from './types.ts';
 import { api } from './lib/api.ts';
 import { ThemeProvider } from './context/ThemeContext.tsx';
 
@@ -19,11 +20,22 @@ function AppContent() {
   const [stats, setStats] = useState<AppStats | null>(null);
   const [preselectedTable, setPreselectedTable] = useState<string | null>(null);
   const [quickClockInOpen, setQuickClockInOpen] = useState<boolean>(false);
+  const [businessProfile, setBusinessProfile] = useState<BusinessProfile | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
   // Modals for user switching & admin authorization
   const [isSwitchUserOpen, setIsSwitchUserOpen] = useState<boolean>(false);
   const [isAdminAuthOpen, setIsAdminAuthOpen] = useState<boolean>(false);
   const [pendingModule, setPendingModule] = useState<ActiveModule | null>(null);
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      const profile = await api.getBusinessProfile();
+      setBusinessProfile(profile);
+    } catch (err) {
+      console.error('Failed to fetch business profile:', err);
+    }
+  }, []);
 
   const fetchStaff = useCallback(async () => {
     try {
@@ -64,13 +76,23 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
+    fetchProfile();
     fetchStaff();
     fetchStats();
 
     // Auto-refresh stats periodically
     const interval = setInterval(fetchStats, 30000);
     return () => clearInterval(interval);
-  }, [fetchStaff, fetchStats]);
+  }, [fetchProfile, fetchStaff, fetchStats]);
+
+  const handleDatabaseReinitialized = async (newProfile: BusinessProfile) => {
+    setBusinessProfile(newProfile);
+    await fetchStaff();
+    await fetchStats();
+    // Switch to orders module and clear any active selections
+    setActiveModule('orders');
+    setPreselectedTable(null);
+  };
 
   const handleSeatAndOpenOrder = (tableNumber: string) => {
     setPreselectedTable(tableNumber);
@@ -128,6 +150,8 @@ function AppContent() {
           setActiveModule('staff');
           setQuickClockInOpen(true);
         }}
+        profile={businessProfile}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
@@ -136,6 +160,11 @@ function AppContent() {
             staffList={staffList}
             onStatsRefresh={fetchStats}
             preselectedTable={preselectedTable}
+            onOpenQuickClockIn={() => {
+              setActiveModule('staff');
+              setQuickClockInOpen(true);
+            }}
+            profile={businessProfile}
           />
         )}
 
@@ -214,10 +243,19 @@ function AppContent() {
         }
       />
 
+      {/* Restaurant Branding & Database Settings Modal */}
+      <SettingsAndBrandingModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        profile={businessProfile}
+        onProfileUpdated={(updated) => setBusinessProfile(updated)}
+        onDatabaseReinitialized={handleDatabaseReinitialized}
+      />
+
       {/* Subtle footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-4 px-6 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>The Rustic Bistro &bull; Simplified Single-Tenant Restaurant Suite</span>
+          <span>{businessProfile?.business_name || 'The Rustic Bistro'} &bull; Simplified Single-Tenant Restaurant Suite</span>
           <span className="text-[11px] text-slate-400 dark:text-slate-500">
             Persistent SQLite Database &bull; Role/Title Access &bull; Cash & Standalone Terminal Payment Recording
           </span>

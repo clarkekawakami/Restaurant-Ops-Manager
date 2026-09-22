@@ -242,7 +242,38 @@ function initSchema(db: Database) {
       created_at TEXT NOT NULL,
       FOREIGN KEY (location_id) REFERENCES seating_locations(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS business_profile (
+      id TEXT PRIMARY KEY,
+      business_name TEXT NOT NULL,
+      tagline TEXT DEFAULT '',
+      logo_url TEXT DEFAULT '',
+      logo_icon TEXT DEFAULT 'utensils',
+      phone TEXT DEFAULT '',
+      email TEXT DEFAULT '',
+      address TEXT DEFAULT '',
+      receipt_footer TEXT DEFAULT 'Thank you for dining with us!',
+      tax_rate REAL DEFAULT 8.25,
+      currency_symbol TEXT DEFAULT '$',
+      database_mode TEXT DEFAULT 'demo',
+      setup_completed INTEGER DEFAULT 1,
+      updated_at TEXT NOT NULL
+    );
   `);
+
+  // Ensure business_profile is initialized
+  try {
+    const bizCount = db.exec('SELECT COUNT(*) as cnt FROM business_profile');
+    const hasBiz = bizCount.length > 0 ? (bizCount[0].values[0][0] as number) > 0 : false;
+    if (!hasBiz) {
+      const now = new Date().toISOString();
+      db.run(`INSERT INTO business_profile (id, business_name, tagline, logo_url, logo_icon, phone, email, address, receipt_footer, tax_rate, currency_symbol, database_mode, setup_completed, updated_at) VALUES
+        ('default_biz', 'The Rustic Bistro', 'Artisan Kitchen & Craft Bar', '', 'utensils', '(555) 234-8900', 'info@rusticbistro.com', '124 Main Street • Downtown', 'Thank you for dining with us! Please come again.', 8.25, '$', 'demo', 1, '${now}');
+      `);
+    }
+  } catch (err) {
+    console.error('Error initializing business_profile:', err);
+  }
 
   // Ensure seating_locations and dining_tables are initialized if empty
   try {
@@ -536,4 +567,193 @@ function seedData(db: Database) {
     ('log_2', 'inv_2', 15, 'restock', 'Fresh catch delivery', '${now}'),
     ('log_3', 'inv_1', -2, 'order_depletion', 'Kitchen prep shift 101/102', '${now}');
   `);
+}
+
+export function getBusinessProfile() {
+  let profile = get('SELECT * FROM business_profile WHERE id = ?', ['default_biz']);
+  if (!profile) {
+    const now = new Date().toISOString();
+    run(
+      `INSERT INTO business_profile (id, business_name, tagline, logo_url, logo_icon, phone, email, address, receipt_footer, tax_rate, currency_symbol, database_mode, setup_completed, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ['default_biz', 'The Rustic Bistro', 'Artisan Kitchen & Craft Bar', '', 'utensils', '(555) 234-8900', 'info@rusticbistro.com', '124 Main Street • Downtown', 'Thank you for dining with us! Please come again.', 8.25, '$', 'demo', 1, now]
+    );
+    profile = get('SELECT * FROM business_profile WHERE id = ?', ['default_biz']);
+  }
+  return profile;
+}
+
+export function updateBusinessProfile(data: Record<string, any>) {
+  const current = getBusinessProfile() || {};
+  const now = new Date().toISOString();
+  const updated = {
+    business_name: data.business_name !== undefined ? String(data.business_name) : (current.business_name || 'The Rustic Bistro'),
+    tagline: data.tagline !== undefined ? String(data.tagline) : (current.tagline || ''),
+    logo_url: data.logo_url !== undefined ? String(data.logo_url) : (current.logo_url || ''),
+    logo_icon: data.logo_icon !== undefined ? String(data.logo_icon) : (current.logo_icon || 'utensils'),
+    phone: data.phone !== undefined ? String(data.phone) : (current.phone || ''),
+    email: data.email !== undefined ? String(data.email) : (current.email || ''),
+    address: data.address !== undefined ? String(data.address) : (current.address || ''),
+    receipt_footer: data.receipt_footer !== undefined ? String(data.receipt_footer) : (current.receipt_footer || 'Thank you for dining with us!'),
+    tax_rate: typeof data.tax_rate === 'number' ? data.tax_rate : (typeof current.tax_rate === 'number' ? current.tax_rate : 8.25),
+    currency_symbol: data.currency_symbol !== undefined ? String(data.currency_symbol) : (current.currency_symbol || '$'),
+    database_mode: data.database_mode !== undefined ? String(data.database_mode) : (current.database_mode || 'demo'),
+    setup_completed: typeof data.setup_completed === 'number' ? data.setup_completed : (data.setup_completed ? 1 : (current.setup_completed ?? 1)),
+    updated_at: now,
+  };
+
+  run(
+    `UPDATE business_profile SET
+      business_name = ?, tagline = ?, logo_url = ?, logo_icon = ?, phone = ?, email = ?,
+      address = ?, receipt_footer = ?, tax_rate = ?, currency_symbol = ?, database_mode = ?, setup_completed = ?, updated_at = ?
+     WHERE id = 'default_biz'`,
+    [
+      updated.business_name,
+      updated.tagline,
+      updated.logo_url,
+      updated.logo_icon,
+      updated.phone,
+      updated.email,
+      updated.address,
+      updated.receipt_footer,
+      updated.tax_rate,
+      updated.currency_symbol,
+      updated.database_mode,
+      updated.setup_completed,
+      updated.updated_at,
+    ]
+  );
+
+  return getBusinessProfile();
+}
+
+export function resetAndSeedDatabase(options: {
+  mode: 'demo' | 'minimal';
+  branding?: {
+    business_name?: string;
+    tagline?: string;
+    logo_url?: string;
+    logo_icon?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    receipt_footer?: string;
+    tax_rate?: number;
+    currency_symbol?: string;
+  };
+  adminUser?: {
+    name?: string;
+    pin?: string;
+  };
+}) {
+  if (!dbInstance) throw new Error('Database not initialized');
+  const db = dbInstance;
+
+  // Clear all operational tables
+  db.run(`
+    DELETE FROM order_items;
+    DELETE FROM orders;
+    DELETE FROM tips;
+    DELETE FROM time_shifts;
+    DELETE FROM reservations;
+    DELETE FROM inventory_logs;
+    DELETE FROM menu_item_ingredients;
+    DELETE FROM menu_items;
+    DELETE FROM menu_categories;
+    DELETE FROM inventory_items;
+    DELETE FROM inventory_categories;
+    DELETE FROM dining_tables;
+    DELETE FROM seating_locations;
+    DELETE FROM staff;
+  `);
+
+  const now = new Date().toISOString();
+
+  if (options.mode === 'demo') {
+    // 1. Locations and Tables
+    db.run(`INSERT INTO seating_locations (id, name, display_order, description, created_at) VALUES
+      ('loc_main', 'Main Dining Room', 1, 'Central dining room with booths and standard tables', '${now}'),
+      ('loc_bar', 'Bar', 2, 'Cocktail bar counter stools and high-top perimeter tables', '${now}'),
+      ('loc_patio', 'Patio', 3, 'Outdoor garden terrace with umbrella tables', '${now}');
+    `);
+
+    db.run(`INSERT INTO dining_tables (id, location_id, table_number, seats, shape, is_active, display_order, created_at) VALUES
+      ('tbl_1', 'loc_main', 'Table 1', 2, 'standard', 1, 1, '${now}'),
+      ('tbl_2', 'loc_main', 'Table 2', 4, 'standard', 1, 2, '${now}'),
+      ('tbl_3', 'loc_main', 'Table 3', 4, 'booth', 1, 3, '${now}'),
+      ('tbl_4', 'loc_main', 'Table 4', 4, 'standard', 1, 4, '${now}'),
+      ('tbl_5', 'loc_main', 'Table 5', 6, 'booth', 1, 5, '${now}'),
+      ('tbl_6', 'loc_main', 'Table 6', 8, 'standard', 1, 6, '${now}'),
+      ('tbl_7', 'loc_bar', 'Bar 1', 2, 'bar', 1, 1, '${now}'),
+      ('tbl_8', 'loc_bar', 'Bar 2', 2, 'bar', 1, 2, '${now}'),
+      ('tbl_9', 'loc_bar', 'Bar 3', 2, 'bar', 1, 3, '${now}'),
+      ('tbl_10', 'loc_bar', 'High Top 1', 4, 'standard', 1, 4, '${now}'),
+      ('tbl_11', 'loc_patio', 'Patio 1', 4, 'outdoor', 1, 1, '${now}'),
+      ('tbl_12', 'loc_patio', 'Patio 2', 4, 'outdoor', 1, 2, '${now}'),
+      ('tbl_13', 'loc_patio', 'Patio 3', 6, 'outdoor', 1, 3, '${now}');
+    `);
+
+    // 2. Inventory Categories
+    const initialCats = ['Produce', 'Meat', 'Seafood', 'Dairy', 'Pantry', 'Frozen', 'Beverage'];
+    initialCats.forEach((name, idx) => {
+      db.run('INSERT INTO inventory_categories (id, name, display_order, created_at) VALUES (?, ?, ?, ?)',
+        [`inv_cat_${idx + 1}`, name, idx + 1, now]
+      );
+    });
+
+    // 3. Demo seed data
+    seedData(db);
+
+    // If custom admin user provided, update manager staff
+    if (options.adminUser?.name || options.adminUser?.pin) {
+      const adminName = options.adminUser.name?.trim() || 'Liam O\'Connor';
+      const adminPin = options.adminUser.pin?.trim() || '9999';
+      db.run(`UPDATE staff SET name = ?, pin = ? WHERE id = 'staff_6'`, [adminName, adminPin]);
+    }
+  } else {
+    // MINIMAL CLEAN SLATE MODE
+    // 1. Baseline Seating Location & Tables
+    db.run(`INSERT INTO seating_locations (id, name, display_order, description, created_at) VALUES
+      ('loc_main', 'Main Dining Room', 1, 'Primary dining room and service floor', '${now}');
+    `);
+
+    db.run(`INSERT INTO dining_tables (id, location_id, table_number, seats, shape, is_active, display_order, created_at) VALUES
+      ('tbl_1', 'loc_main', 'Table 1', 2, 'standard', 1, 1, '${now}'),
+      ('tbl_2', 'loc_main', 'Table 2', 4, 'standard', 1, 2, '${now}'),
+      ('tbl_3', 'loc_main', 'Table 3', 4, 'standard', 1, 3, '${now}'),
+      ('tbl_4', 'loc_main', 'Table 4', 6, 'standard', 1, 4, '${now}');
+    `);
+
+    // 2. Standard Inventory Categories (clean, 0 items)
+    const initialCats = ['Produce', 'Meat', 'Seafood', 'Dairy', 'Pantry', 'Frozen', 'Beverage'];
+    initialCats.forEach((name, idx) => {
+      db.run('INSERT INTO inventory_categories (id, name, display_order, created_at) VALUES (?, ?, ?, ?)',
+        [`inv_cat_${idx + 1}`, name, idx + 1, now]
+      );
+    });
+
+    // 3. Baseline Menu Categories (clean, 0 items)
+    db.run(`INSERT INTO menu_categories (id, name, display_order, created_at) VALUES
+      ('cat_food', 'Food & Entrees', 1, '${now}'),
+      ('cat_beverages', 'Beverages', 2, '${now}');
+    `);
+
+    // 4. Single Administrator account so they can immediately sign in and manage
+    const adminName = options.adminUser?.name?.trim() || 'General Manager';
+    const adminPin = options.adminUser?.pin?.trim() || '1234';
+    db.run(`INSERT INTO staff (id, name, title, hourly_rate, pin, is_active, admin_access, created_at) VALUES
+      ('staff_admin_1', ?, 'manager', 25.00, ?, 1, 1, '${now}');
+    `, [adminName, adminPin]);
+  }
+
+  // Update business profile
+  const branding = options.branding || {};
+  const updatedProfile = updateBusinessProfile({
+    ...branding,
+    database_mode: options.mode,
+    setup_completed: 1,
+  });
+
+  saveDb();
+  return updatedProfile;
 }

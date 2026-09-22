@@ -9,7 +9,23 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "esbuild": "esbuild"
+  },
+  "overrides": {
+    "esbuild": "^0.25.0"
+  },
+  "allowScripts": {
+    "@google/genai": true,
+    "esbuild": true,
+    "protobufjs": true
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@google/genai",
+      "esbuild",
+      "protobufjs"
+    ]
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

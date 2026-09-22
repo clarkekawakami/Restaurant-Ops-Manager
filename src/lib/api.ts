@@ -14,6 +14,9 @@ import {
   SeatingLocation,
   DiningTable,
   SeatingPlanOverview,
+  BusinessProfile,
+  DatabaseStatus,
+  ReinitializeOptions,
 } from '../types.ts';
 
 const jsonHeaders = { 'Content-Type': 'application/json' };
@@ -504,6 +507,44 @@ export const api = {
   getSeatingPlan: async (): Promise<SeatingPlanOverview> => {
     const res = await fetch('/api/seating/plan');
     if (!res.ok) throw new Error('Failed to fetch seating plan');
+    return res.json();
+  },
+
+  // Business Profile & Database Settings
+  getBusinessProfile: async (): Promise<BusinessProfile> => {
+    const res = await fetch('/api/settings/profile');
+    if (!res.ok) throw new Error('Failed to fetch business profile');
+    return res.json();
+  },
+  updateBusinessProfile: async (data: Partial<BusinessProfile>): Promise<BusinessProfile> => {
+    const res = await fetch('/api/settings/profile', {
+      method: 'PUT',
+      headers: jsonHeaders,
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to update business profile');
+    }
+    return res.json();
+  },
+  getDatabaseStatus: async (): Promise<DatabaseStatus> => {
+    const res = await fetch('/api/settings/status');
+    if (!res.ok) throw new Error('Failed to fetch database status');
+    return res.json();
+  },
+  reinitializeDatabase: async (
+    options: ReinitializeOptions
+  ): Promise<{ success: boolean; mode: string; profile: BusinessProfile; message: string }> => {
+    const res = await fetch('/api/settings/reinitialize', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(options),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to reinitialize database');
+    }
     return res.json();
   },
 };

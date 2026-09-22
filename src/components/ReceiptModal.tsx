@@ -1,13 +1,15 @@
 import React from 'react';
 import { X, Printer, Check, Receipt } from 'lucide-react';
-import { Order } from '../types.ts';
+import { Order, BusinessProfile } from '../types.ts';
+import { RestaurantLogo } from './RestaurantLogo.tsx';
 
 interface ReceiptModalProps {
   order: Order;
   onClose: () => void;
+  profile?: BusinessProfile | null;
 }
 
-export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, onClose }) => {
+export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, onClose, profile }) => {
   const handlePrint = () => {
     window.print();
   };
@@ -15,6 +17,11 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, onClose }) =>
   const formattedDate = order.paid_at
     ? new Date(order.paid_at).toLocaleString()
     : new Date(order.created_at).toLocaleString();
+
+  const businessName = profile?.business_name || 'The Rustic Bistro';
+  const address = profile?.address || '124 Main Street • Downtown';
+  const phone = profile?.phone || '(555) 234-8900';
+  const footerMessage = profile?.receipt_footer || 'Thank you for dining with us!';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
@@ -45,11 +52,19 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, onClose }) =>
         {/* Thermal style printed receipt layout */}
         <div className="p-6 bg-white font-mono text-xs space-y-4 max-h-[75vh] overflow-y-auto print:p-0">
           <div className="text-center space-y-1 border-b border-dashed border-slate-300 pb-4">
+            <div className="flex justify-center pb-1">
+              <RestaurantLogo
+                logoUrl={profile?.logo_url}
+                logoIcon={profile?.logo_icon || 'utensils'}
+                className="w-10 h-10 rounded-lg bg-slate-900 text-white flex items-center justify-center mx-auto overflow-hidden shadow-2xs"
+                iconClassName="w-5 h-5 text-amber-400"
+              />
+            </div>
             <h1 className="font-bold text-base tracking-wider uppercase text-slate-900 font-sans">
-              The Rustic Bistro
+              {businessName}
             </h1>
-            <p className="text-[11px] text-slate-500">124 Main Street &bull; Downtown</p>
-            <p className="text-[11px] text-slate-500">Tel: (555) 234-8900</p>
+            <p className="text-[11px] text-slate-500">{address}</p>
+            <p className="text-[11px] text-slate-500">Tel: {phone}</p>
             <div className="pt-2 text-[10px] text-slate-400">
               <span>{formattedDate}</span>
             </div>
@@ -112,7 +127,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, onClose }) =>
           </div>
 
           <div className="text-center pt-2 space-y-1 text-slate-500 text-[10px]">
-            <p>Thank you for dining with us!</p>
+            <p>{footerMessage}</p>
             <p className="font-semibold text-emerald-700">PAID &bull; RECEIPT CLOSED</p>
           </div>
         </div>
