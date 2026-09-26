@@ -340,6 +340,8 @@ function initSchema(db: Database) {
     db.run(`UPDATE menu_items SET pantry_cost = 0.50, labor_cost = 2.00 WHERE id = 'item_10' AND (pantry_cost = 0 OR pantry_cost IS NULL)`);
     db.run(`UPDATE menu_items SET pantry_cost = 0.15, labor_cost = 0.80 WHERE id = 'item_11' AND (pantry_cost = 0 OR pantry_cost IS NULL)`);
     db.run(`UPDATE menu_items SET pantry_cost = 0.25, labor_cost = 0.75 WHERE id = 'item_12' AND (pantry_cost = 0 OR pantry_cost IS NULL)`);
+    db.run(`UPDATE menu_items SET pantry_cost = 1.25, labor_cost = 3.75 WHERE id = 'item_13' AND (pantry_cost = 0 OR pantry_cost IS NULL)`);
+    db.run(`UPDATE menu_items SET pantry_cost = 2.50, labor_cost = 5.00 WHERE id = 'item_14' AND (pantry_cost = 0 OR pantry_cost IS NULL)`);
   } catch (err) {
     console.error('Error seeding baseline costing:', err);
   }
@@ -358,40 +360,6 @@ function initSchema(db: Database) {
     }
   } catch (err) {
     console.error('Migration error for menu_item_ingredients:', err);
-  }
-
-  // Seed baseline major cost drivers for menu items if table is empty
-  try {
-    const ingCount = db.exec('SELECT COUNT(*) as cnt FROM menu_item_ingredients');
-    const hasIngs = ingCount.length > 0 ? (ingCount[0].values[0][0] as number) > 0 : false;
-    if (!hasIngs) {
-      db.run(`INSERT INTO menu_item_ingredients (id, menu_item_id, inventory_item_id, quantity_used, driver_name, driver_cost) VALUES
-        ('mii_1', 'item_1', 'inv_3', 1, 'Organic Burrata Cheese', 3.10),
-        ('mii_2', 'item_1', 'inv_4', 0.5, 'Heirloom Vine Tomatoes', 1.10),
-        ('mii_3', 'item_2', '', 1, 'Tender Calamari Rings & Tentacles', 3.80),
-        ('mii_4', 'item_3', 'inv_1', 1, 'Prime Ribeye Steak (12oz Cut)', 14.50),
-        ('mii_5', 'item_4', 'inv_2', 1, 'Fresh Atlantic Salmon Fillet', 9.20),
-        ('mii_6', 'item_4', '', 1, 'Braised Leeks & Citrus Micro Greens', 0.60),
-        ('mii_7', 'item_5', 'inv_5', 0.75, 'Fresh Tagliatelle Pasta', 2.10),
-        ('mii_8', 'item_5', 'inv_7', 0.2, 'Aged Grana Padano Parmesan', 1.70),
-        ('mii_9', 'item_5', 'inv_6', 0.08, 'Black Truffle Oil Drizzle', 2.30),
-        ('mii_10', 'item_6', '', 1, 'Slow-Simmered Beef & Pork Ragù', 3.80),
-        ('mii_11', 'item_6', 'inv_7', 0.2, 'Artisan Rigatoni & Grated Parmesan', 1.70),
-        ('mii_12', 'item_7', '', 1, 'Hand-Cut Russet Potatoes', 1.20),
-        ('mii_13', 'item_7', 'inv_7', 0.1, 'Parmesan & Truffle Essence', 1.00),
-        ('mii_14', 'item_8', '', 1, 'Fresh Broccolini & Toasted Almonds', 2.00),
-        ('mii_15', 'item_9', 'inv_10', 0.1, 'Dark Roast Espresso Extract', 1.20),
-        ('mii_16', 'item_9', '', 1, 'Mascarpone Cream & Savoiardi', 1.80),
-        ('mii_17', 'item_10', 'inv_9', 0.25, 'Madagascar Vanilla Bean Gelato', 1.85),
-        ('mii_18', 'item_10', '', 1, 'Warm Dark Molten Chocolate Core', 1.65),
-        ('mii_19', 'item_11', 'inv_11', 0.25, 'Chianti Classico DOCG (6oz)', 2.88),
-        ('mii_20', 'item_11', '', 1, 'Cellar Reserve Service Allocation', 0.32),
-        ('mii_21', 'item_12', 'inv_12', 0.33, 'San Pellegrino Sparkling Base', 0.60),
-        ('mii_22', 'item_12', '', 1, 'Blood Orange Puree & Mint', 0.60);
-      `);
-    }
-  } catch (err) {
-    console.error('Error seeding baseline ingredients:', err);
   }
 
   // Ensure inventory_categories table has initial categories
@@ -469,7 +437,7 @@ function seedData(db: Database) {
     ('cat_6', 'Craft Beverages & Wine', 6, '${now}');
   `);
 
-  // 2. Inventory Items
+  // 2. Inventory Items (24 items covering all cost drivers)
   db.run(`INSERT INTO inventory_items (id, name, category, unit, current_stock, min_threshold, unit_cost, supplier, updated_at) VALUES
     ('inv_1', 'Prime Ribeye Steaks (12oz)', 'Meat', 'cuts', 18, 10, 14.50, 'Valley Prime Meats', '${now}'),
     ('inv_2', 'Fresh Atlantic Salmon Fillets', 'Seafood', 'lbs', 14.5, 8, 9.20, 'Coastal Catch Seafood', '${now}'),
@@ -481,11 +449,23 @@ function seedData(db: Database) {
     ('inv_8', 'Fresh Basil Leaves', 'Produce', 'bunches', 15, 6, 1.25, 'Green Valley Farm', '${now}'),
     ('inv_9', 'Madagascar Vanilla Bean Gelato', 'Frozen', 'quarts', 8, 4, 7.50, 'Sweet Alpine Creamery', '${now}'),
     ('inv_10', 'Espresso Beans (Dark Roast)', 'Beverage', 'lbs', 16, 5, 12.00, 'Summit Roasters', '${now}'),
-    ('inv_11', 'Chianti Classico Red Wine', 'Beverage', 'bottles', 28, 12, 11.50, 'Tuscany Cellars', '${now}'),
-    ('inv_12', 'San Pellegrino Sparkling (750ml)', 'Beverage', 'bottles', 42, 20, 1.80, 'Beverage Depot', '${now}');
+    ('inv_11', 'Chianti Classico Red Wine', 'Beverage', 'bottles', 28, 12, 12.80, 'Tuscany Cellars', '${now}'),
+    ('inv_12', 'San Pellegrino Sparkling (750ml)', 'Beverage', 'bottles', 42, 20, 1.80, 'Beverage Depot', '${now}'),
+    ('inv_13', 'Fresh Calamari Rings & Tentacles', 'Seafood', 'lbs', 16, 6, 3.80, 'Coastal Catch Seafood', '${now}'),
+    ('inv_14', 'Baby Leeks & Microgreens', 'Produce', 'bunches', 20, 8, 1.20, 'Green Valley Farm', '${now}'),
+    ('inv_15', 'Slow-Simmered Beef & Pork Ragù', 'Meat', 'portions', 24, 8, 3.80, 'In-House Prep Kitchen', '${now}'),
+    ('inv_16', 'Russet Idaho Potatoes', 'Produce', 'lbs', 45, 15, 0.80, 'Green Valley Farm', '${now}'),
+    ('inv_17', 'Fresh Baby Broccolini', 'Produce', 'bunches', 20, 8, 2.00, 'Green Valley Farm', '${now}'),
+    ('inv_18', 'Italian Mascarpone & Savoiardi', 'Dairy', 'portions', 18, 6, 1.80, 'Euro Imports', '${now}'),
+    ('inv_19', 'Belgian Dark Couverture Chocolate (70%)', 'Pantry', 'lbs', 16, 6, 5.50, 'Gourmet Imports', '${now}'),
+    ('inv_20', 'Sicilian Blood Orange Puree', 'Beverage', 'bottles', 15, 5, 3.00, 'Beverage Depot', '${now}'),
+    ('inv_21', 'Wild Alaskan Halibut Fillets', 'Seafood', 'lbs', 12, 5, 16.00, 'Coastal Catch Seafood', '${now}'),
+    ('inv_22', 'Jumbo Green Asparagus', 'Produce', 'lbs', 18, 6, 5.00, 'Green Valley Farm', '${now}'),
+    ('inv_23', 'Prime Japanese A5 Wagyu Strip', 'Meat', 'oz', 64, 16, 4.25, 'Kobe Reserve Imports', '${now}'),
+    ('inv_24', 'Artisan Truffle Finishing Butter', 'Dairy', 'lbs', 10, 4, 16.00, 'Euro Imports', '${now}');
   `);
 
-  // 3. Menu Items
+  // 3. Menu Items (14 curated items)
   db.run(`INSERT INTO menu_items (id, category_id, name, description, price, cost, pantry_cost, labor_cost, is_available, allergens, image_url, created_at) VALUES
     ('item_1', 'cat_1', 'Truffle Burrata Bruschetta', 'Toasted sourdough with creamy burrata, heirloom tomatoes, fresh basil, and white truffle glaze', 16.50, 4.20, 0.65, 1.50, 1, 'Dairy, Gluten', 'https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?w=600&auto=format&fit=crop&q=80', '${now}'),
     ('item_2', 'cat_1', 'Crisp Calamari Fritti', 'Tender calamari rings with lemon herb aioli and roasted garlic marinara', 15.00, 3.80, 0.85, 1.75, 1, 'Seafood, Gluten, Eggs', 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=600&auto=format&fit=crop&q=80', '${now}'),
@@ -498,10 +478,41 @@ function seedData(db: Database) {
     ('item_9', 'cat_5', 'Classic Espresso Tiramisu', 'Savoiardi ladyfingers, mascarpone cream, dark espresso, and Dutch cocoa powder', 12.00, 3.00, 0.40, 1.80, 1, 'Dairy, Gluten, Eggs', 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=600&auto=format&fit=crop&q=80', '${now}'),
     ('item_10', 'cat_5', 'Molten Dark Chocolate Cake', 'Warm chocolate center with vanilla bean gelato and raspberry coulis', 13.50, 3.50, 0.50, 2.00, 1, 'Dairy, Gluten, Eggs', 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=600&auto=format&fit=crop&q=80', '${now}'),
     ('item_11', 'cat_6', 'Chianti Classico (Glass)', 'Tuscan red with notes of dark cherry, cedar, and dried herbs', 14.00, 3.20, 0.15, 0.80, 1, 'Sulfites', '', '${now}'),
-    ('item_12', 'cat_6', 'Sparkling Blood Orange Soda', 'Fresh pressed Sicilian blood orange juice, sparkling mineral water, mint', 6.50, 1.20, 0.25, 0.75, 1, '', '', '${now}');
+    ('item_12', 'cat_6', 'Sparkling Blood Orange Soda', 'Fresh pressed Sicilian blood orange juice, sparkling mineral water, mint', 6.50, 1.20, 0.25, 0.75, 1, '', '', '${now}'),
+    ('item_13', 'cat_2', 'Pan-Seared Halibut & Asparagus', 'Wild Alaskan halibut with grilled jumbo asparagus and brown butter reduction', 36.00, 9.50, 1.25, 3.75, 1, 'Fish, Dairy', 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=600&auto=format&fit=crop&q=80', '${now}'),
+    ('item_14', 'cat_2', 'Miyazaki A5 Wagyu Strip Steak (Reserve)', '8 oz Japanese A5 Wagyu strip loin with black truffle butter and charred scallion puree', 82.00, 36.00, 2.50, 5.00, 1, 'Dairy', 'https://images.unsplash.com/photo-1558030006-450675393462?w=600&auto=format&fit=crop&q=80', '${now}');
   `);
 
-  // 4. Staff members
+  // 4. Menu Item Ingredients (Every cost driver linked directly to an inventory SKU)
+  db.run(`INSERT INTO menu_item_ingredients (id, menu_item_id, inventory_item_id, quantity_used, driver_name, driver_cost) VALUES
+    ('mii_1', 'item_1', 'inv_3', 1.0, 'Organic Burrata Cheese', 3.10),
+    ('mii_2', 'item_1', 'inv_4', 0.5, 'Heirloom Vine Tomatoes', 1.10),
+    ('mii_3', 'item_2', 'inv_13', 1.0, 'Fresh Calamari Rings & Tentacles', 3.80),
+    ('mii_4', 'item_3', 'inv_1', 1.0, 'Prime Ribeye Steaks (12oz)', 14.50),
+    ('mii_5', 'item_4', 'inv_2', 1.0, 'Fresh Atlantic Salmon Fillets', 9.20),
+    ('mii_6', 'item_4', 'inv_14', 0.5, 'Baby Leeks & Microgreens', 0.60),
+    ('mii_7', 'item_5', 'inv_5', 0.75, 'Fresh Tagliatelle Pasta', 2.10),
+    ('mii_8', 'item_5', 'inv_7', 0.2, 'Grana Padano Parmesan', 1.70),
+    ('mii_9', 'item_5', 'inv_6', 0.082, 'Black Truffle Oil', 2.30),
+    ('mii_10', 'item_6', 'inv_15', 1.0, 'Slow-Simmered Beef & Pork Ragù', 3.80),
+    ('mii_11', 'item_6', 'inv_7', 0.2, 'Grana Padano Parmesan', 1.70),
+    ('mii_12', 'item_7', 'inv_16', 1.5, 'Russet Idaho Potatoes', 1.20),
+    ('mii_13', 'item_7', 'inv_7', 0.118, 'Grana Padano Parmesan', 1.00),
+    ('mii_14', 'item_8', 'inv_17', 1.0, 'Fresh Baby Broccolini', 2.00),
+    ('mii_15', 'item_9', 'inv_10', 0.1, 'Espresso Beans (Dark Roast)', 1.20),
+    ('mii_16', 'item_9', 'inv_18', 1.0, 'Italian Mascarpone & Savoiardi', 1.80),
+    ('mii_17', 'item_10', 'inv_9', 0.25, 'Madagascar Vanilla Bean Gelato', 1.85),
+    ('mii_18', 'item_10', 'inv_19', 0.3, 'Belgian Dark Couverture Chocolate (70%)', 1.65),
+    ('mii_19', 'item_11', 'inv_11', 0.25, 'Chianti Classico Red Wine', 3.20),
+    ('mii_20', 'item_12', 'inv_12', 0.33, 'San Pellegrino Sparkling (750ml)', 0.60),
+    ('mii_21', 'item_12', 'inv_20', 0.2, 'Sicilian Blood Orange Puree', 0.60),
+    ('mii_22', 'item_13', 'inv_21', 0.5, 'Wild Alaskan Halibut Fillets', 8.00),
+    ('mii_23', 'item_13', 'inv_22', 0.3, 'Jumbo Green Asparagus', 1.50),
+    ('mii_24', 'item_14', 'inv_23', 8.0, 'Prime Japanese A5 Wagyu Strip', 34.00),
+    ('mii_25', 'item_14', 'inv_24', 0.125, 'Artisan Truffle Finishing Butter', 2.00);
+  `);
+
+  // 5. Staff members
   db.run(`INSERT INTO staff (id, name, title, hourly_rate, pin, is_active, admin_access, created_at) VALUES
     ('staff_1', 'Elena Vasquez', 'server', 16.50, '1234', 1, 0, '${now}'),
     ('staff_2', 'Marcus Chen', 'server', 16.50, '2345', 1, 0, '${now}'),
@@ -565,7 +576,9 @@ function seedData(db: Database) {
   db.run(`INSERT INTO inventory_logs (id, inventory_item_id, change_amount, change_type, notes, created_at) VALUES
     ('log_1', 'inv_1', 20, 'restock', 'Weekly butcher delivery received', '${now}'),
     ('log_2', 'inv_2', 15, 'restock', 'Fresh catch delivery', '${now}'),
-    ('log_3', 'inv_1', -2, 'order_depletion', 'Kitchen prep shift 101/102', '${now}');
+    ('log_3', 'inv_21', 12, 'restock', 'Wild Alaskan Halibut shipment', '${now}'),
+    ('log_4', 'inv_23', 64, 'restock', 'A5 Wagyu Strip reserve cut delivery', '${now}'),
+    ('log_5', 'inv_1', -2, 'order_depletion', 'Kitchen prep shift 101/102', '${now}');
   `);
 }
 
