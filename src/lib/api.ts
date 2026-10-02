@@ -192,6 +192,28 @@ export const api = {
     if (!res.ok) throw new Error('Failed to create order');
     return res.json();
   },
+  updateOrder: async (
+    id: string,
+    data: {
+      order_type?: string;
+      table_number?: string;
+      guest_count?: number;
+      server_id?: string | null;
+      status?: string;
+      items: Array<{ id?: string; menu_item_id: string; name: string; quantity: number; unit_price: number; notes?: string; status?: string }>;
+    }
+  ): Promise<Order> => {
+    const res = await fetch(`/api/orders/${id}`, {
+      method: 'PUT',
+      headers: jsonHeaders,
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update order');
+    }
+    return res.json();
+  },
   updateOrderStatus: async (id: string, status: string): Promise<Order> => {
     const res = await fetch(`/api/orders/${id}/status`, {
       method: 'PATCH',

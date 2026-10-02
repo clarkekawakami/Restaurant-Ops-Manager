@@ -107,8 +107,9 @@ router.post('/', (req, res) => {
       }
     }
 
-    const TAX_RATE = 0.0825; // 8.25% standard tax
-    const tax = Math.round(subtotal * TAX_RATE * 100) / 100;
+    const profile = get('SELECT tax_rate FROM business_profile WHERE id = ?', ['default_biz']);
+    const taxRate = typeof profile?.tax_rate === 'number' ? profile.tax_rate / 100 : 0.0825;
+    const tax = Math.round(subtotal * taxRate * 100) / 100;
     const total = Math.round((subtotal + tax) * 100) / 100;
 
     run(
@@ -178,7 +179,9 @@ router.put('/:id', (req, res) => {
       subtotal = existing.subtotal;
     }
 
-    const tax = Math.round(subtotal * 0.0825 * 100) / 100;
+    const profile = get('SELECT tax_rate FROM business_profile WHERE id = ?', ['default_biz']);
+    const taxRate = typeof profile?.tax_rate === 'number' ? profile.tax_rate / 100 : 0.0825;
+    const tax = Math.round(subtotal * taxRate * 100) / 100;
     const tip = existing.tip || 0;
     const total = Math.round((subtotal + tax + tip) * 100) / 100;
 

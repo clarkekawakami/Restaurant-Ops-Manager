@@ -20,6 +20,7 @@ import {
   MapPin,
   Armchair,
   CircleDot,
+  Pencil,
 } from 'lucide-react';
 import { Order, MenuItem, MenuCategory, StaffMember, OrderStatus, DiningTable, SeatingLocation } from '../types.ts';
 import { api } from '../lib/api.ts';
@@ -58,13 +59,16 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
   const [tableNumber, setTableNumber] = useState<string>(preselectedTable || 'Table 1');
   const [guestCount, setGuestCount] = useState<number>(2);
   const [assignedServerId, setAssignedServerId] = useState<string>('');
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [cartItems, setCartItems] = useState<
     Array<{
+      id?: string;
       menu_item_id: string;
       name: string;
       unit_price: number;
       quantity: number;
       notes: string;
+      status?: string;
     }>
   >([]);
 
@@ -175,28 +179,82 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
     });
   };
 
+  const taxRate = typeof profile?.tax_rate === 'number' ? profile.tax_rate / 100 : 0.0825;
   const cartSubtotal = cartItems.reduce((acc, it) => acc + it.unit_price * it.quantity, 0);
-  const cartTax = Math.round(cartSubtotal * 0.0825 * 100) / 100;
+  const cartTax = Math.round(cartSubtotal * taxRate * 100) / 100;
   const cartTotal = Math.round((cartSubtotal + cartTax) * 100) / 100;
 
-  const handleCreateOrder = async () => {
+  const handleStartEditOrder = (order: Order) => {
+    setEditingOrder(order);
+    setOrderType((order.order_type as any) || 'dine_in');
+    setTableNumber(order.table_number);
+    setGuestCount(order.guest_count || 1);
+    setAssignedServerId(order.server_id || '');
+
+    const match = diningTables.find(
+      (dt) => dt.table_number.toLowerCase() === order.table_number.toLowerCase()
+    );
+    if (match) {
+      setSelectedLocationId(match.location_id);
+    }
+
+    setCartItems(
+      order.items.map((it) => ({
+        id: it.id,
+        menu_item_id: it.menu_item_id,
+        name: it.name,
+        unit_price: it.unit_price,
+        quantity: it.quantity,
+        notes: it.notes || '',
+        status: it.status || 'pending',
+      }))
+    );
+    setSubView('create');
+  };
+
+  const handleCancelEditOrder = () => {
+    setEditingOrder(null);
+    setCartItems([]);
+    setSubView('active');
+  };
+
+  const handleStartNewOrder = () => {
+    setEditingOrder(null);
+    setCartItems([]);
+    setOrderType('dine_in');
+    setTableNumber(diningTables[0]?.table_number || 'Table 1');
+    setGuestCount(2);
+    setSubView('create');
+  };
+
+  const handleSaveOrder = async () => {
     if (cartItems.length === 0) return;
     const finalTable = tableNumber.trim() || (orderType === 'takeout' ? 'Takeout' : 'Table 1');
     try {
-      await api.createOrder({
-        order_type: orderType,
-        table_number: finalTable,
-        guest_count: guestCount,
-        server_id: assignedServerId || null,
-        items: cartItems,
-      });
-      // reset
+      if (editingOrder) {
+        await api.updateOrder(editingOrder.id, {
+          order_type: orderType,
+          table_number: finalTable,
+          guest_count: guestCount,
+          server_id: assignedServerId || null,
+          items: cartItems,
+        });
+      } else {
+        await api.createOrder({
+          order_type: orderType,
+          table_number: finalTable,
+          guest_count: guestCount,
+          server_id: assignedServerId || null,
+          items: cartItems,
+        });
+      }
+      setEditingOrder(null);
       setCartItems([]);
       setSubView('active');
       loadData();
       onStatsRefresh();
     } catch (err: any) {
-      alert(err.message || 'Error creating order');
+      alert(err.message || 'Error saving order');
     }
   };
 
@@ -288,7 +346,11 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
 
           <button
             id="tab-create-order"
-            onClick={() => setSubView('create')}
+            onClick={() => {
+              if (subView !== 'create') {
+                setSubView('create');
+              }
+            }}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
               subView === 'create'
                 ? 'bg-slate-900 dark:bg-amber-500 text-white dark:text-slate-950 shadow-2xs'
@@ -296,7 +358,7 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
             }`}
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>New Order / POS</span>
+            <span>{editingOrder ? `Editing Ticket #${editingOrder.order_number}` : 'New Order / POS'}</span>
           </button>
 
           <button
@@ -424,23 +486,34 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
                     </div>
 
                     {/* Total & Action Bar */}
-                    <div className="p-4 bg-slate-50 border-t border-slate-100 space-y-3">
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
                       <div className="flex justify-between items-baseline text-xs">
-                        <span className="text-slate-500">Subtotal (${order.subtotal.toFixed(2)}) + Tax</span>
+                        <span className="text-slate-500 dark:text-slate-400">Subtotal (${order.subtotal.toFixed(2)}) + Tax</span>
                         <div className="text-right">
-                          <span className="text-sm font-bold font-mono text-slate-900">
+                          <span className="text-sm font-bold font-mono text-slate-900 dark:text-white">
                             Total: ${order.total.toFixed(2)}
                           </span>
                         </div>
                       </div>
 
+                      {/* Modify Active Ticket */}
+                      <button
+                        id={`btn-modify-ticket-${order.order_number}`}
+                        onClick={() => handleStartEditOrder(order)}
+                        className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/30 transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                        title={`Modify Ticket #${order.order_number}`}
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 font-bold" />
+                        <span>Modify Ticket #{order.order_number}</span>
+                      </button>
+
                       <div className="grid grid-cols-2 gap-2">
                         {order.status !== 'served' ? (
                           <button
                             onClick={() => handleAdvanceStatus(order)}
-                            className="py-2 px-3 rounded-xl text-xs font-bold bg-white text-slate-800 border border-slate-300 hover:bg-slate-100 transition cursor-pointer flex items-center justify-center gap-1.5"
+                            className="py-2 px-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer flex items-center justify-center gap-1.5"
                           >
-                            <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                             <span>
                               {order.status === 'active'
                                 ? 'Send Kitchen'
@@ -450,7 +523,7 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
                             </span>
                           </button>
                         ) : (
-                          <div className="py-2 px-3 rounded-xl text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 text-center">
+                          <div className="py-2 px-3 rounded-xl text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-center">
                             Served to Table
                           </div>
                         )}
@@ -458,9 +531,9 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
                         <button
                           id={`btn-pay-${order.order_number}`}
                           onClick={() => setPayingOrder(order)}
-                          className="py-2 px-3 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                          className="py-2 px-3 rounded-xl text-xs font-bold bg-slate-900 dark:bg-amber-500 text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-amber-400 transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
                         >
-                          <CreditCard className="w-3.5 h-3.5 text-amber-400" />
+                          <CreditCard className="w-3.5 h-3.5 text-amber-400 dark:text-slate-950" />
                           <span>Pay & Close</span>
                         </button>
                       </div>
@@ -475,9 +548,27 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
 
       {/* VIEW 2: NEW ORDER BUILDER */}
       {subView === 'create' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Menu Selector (Left 7-8 cols) */}
-          <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+        <div className="space-y-4">
+          {editingOrder && (
+            <div className="p-3.5 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-950 dark:text-amber-200">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+                <span>
+                  Adding items to <strong>Ticket #{editingOrder.order_number}</strong> ({editingOrder.table_number} &bull; {editingOrder.guest_count} guests &bull; {editingOrder.items.length} existing items). Click any item from the menu below to append it to this ticket.
+                </span>
+              </div>
+              <button
+                onClick={handleCancelEditOrder}
+                className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 font-bold cursor-pointer transition shrink-0 border border-amber-500/40 text-amber-900 dark:text-amber-100"
+              >
+                Cancel & Return
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Menu Selector (Left 7-8 cols) */}
+            <div className="lg:col-span-7 xl:col-span-8 space-y-4">
             {/* Search & Category Pills */}
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
@@ -577,11 +668,64 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <Receipt className="w-4 h-4 text-amber-400" />
-                    <span className="font-heading font-bold text-sm">Active POS Ticket</span>
+                    <div>
+                      <span className="font-heading font-bold text-sm block">
+                        {editingOrder ? `Ticket #${editingOrder.order_number}` : 'Active POS Ticket'}
+                      </span>
+                      {editingOrder && (
+                        <span className="text-[10px] text-amber-300 font-medium">
+                          Editing &bull; {editingOrder.table_number}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-[11px] font-mono bg-slate-800 px-2 py-0.5 rounded text-amber-300">
-                    Draft
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {editingOrder ? (
+                      <button
+                        onClick={handleCancelEditOrder}
+                        className="text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded-md cursor-pointer transition border border-slate-700"
+                        title="Cancel editing and return to tickets"
+                      >
+                        Cancel
+                      </button>
+                    ) : (
+                      <span className="text-[11px] font-mono bg-slate-800 px-2 py-0.5 rounded text-amber-300">
+                        Draft
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Ticket Target Switcher */}
+                <div>
+                  <label className="block text-[10px] text-slate-400 font-medium mb-1 flex items-center justify-between">
+                    <span>Ticket Target</span>
+                    {activeOrders.length > 0 && (
+                      <span className="text-amber-400/80 font-normal">{activeOrders.length} active ticket(s)</span>
+                    )}
+                  </label>
+                  <select
+                    value={editingOrder ? editingOrder.id : '__new__'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '__new__') {
+                        handleStartNewOrder();
+                      } else {
+                        const targetOrder = activeOrders.find((o) => o.id === val);
+                        if (targetOrder) {
+                          handleStartEditOrder(targetOrder);
+                        }
+                      }
+                    }}
+                    className="w-full bg-slate-800 border border-slate-700 text-amber-300 font-semibold rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-400 truncate"
+                  >
+                    <option value="__new__">+ Create New Order / Ticket</option>
+                    {activeOrders.map((ao) => (
+                      <option key={ao.id} value={ao.id}>
+                        Add to Ticket #{ao.order_number} ({ao.table_number} &bull; {ao.items.length} items &bull; ${ao.total.toFixed(2)})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Order Type, Location, Table & Server Selection */}
@@ -791,7 +935,7 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
                     <span className="font-mono">${cartSubtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Tax (8.25%):</span>
+                    <span>Tax ({(taxRate * 100).toFixed(2)}%):</span>
                     <span className="font-mono">${cartTax.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-bold text-sm text-slate-900 pt-1 border-t border-slate-200">
@@ -803,9 +947,15 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
                 <div className="flex gap-2">
                   <button
                     disabled={cartItems.length === 0}
-                    onClick={() => setCartItems([])}
+                    onClick={() => {
+                      if (editingOrder) {
+                        handleCancelEditOrder();
+                      } else {
+                        setCartItems([]);
+                      }
+                    }}
                     className="p-2.5 text-xs text-slate-500 hover:text-red-600 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 transition cursor-pointer disabled:opacity-30"
-                    title="Clear Ticket"
+                    title={editingOrder ? "Cancel Editing" : "Clear Ticket"}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -813,17 +963,27 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
                   <button
                     id="btn-send-kitchen"
                     disabled={cartItems.length === 0}
-                    onClick={handleCreateOrder}
+                    onClick={handleSaveOrder}
                     className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-40 transition cursor-pointer flex items-center justify-center gap-2 shadow-sm"
                   >
-                    <ChefHat className="w-4 h-4 text-amber-400" />
-                    <span>Send Order to Floor (${cartTotal.toFixed(2)})</span>
+                    {editingOrder ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 text-emerald-400" />
+                        <span>Save & Update Ticket #{editingOrder.order_number} (${cartTotal.toFixed(2)})</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChefHat className="w-4 h-4 text-amber-400" />
+                        <span>Send Order to Floor (${cartTotal.toFixed(2)})</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
       )}
 
       {/* VIEW 3: COMPLETED SALES HISTORY */}
