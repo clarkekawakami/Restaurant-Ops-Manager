@@ -3,7 +3,7 @@ import { query, get } from '../db.ts';
 
 const router = Router();
 
-router.get('/dashboard', (req, res) => {
+const getStatsHandler = (req: any, res: any) => {
   try {
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -12,7 +12,7 @@ router.get('/dashboard', (req, res) => {
       SELECT total, payment_method, tip
       FROM orders
       WHERE payment_status = 'paid' AND (created_at LIKE ? OR paid_at LIKE ?)
-    `, [`${todayStr}%`, `${todayStr}%`]);
+    `, [`${todayStr}%`, `${todayStr}%`]) || [];
 
     const todaySales = todayOrders.reduce((acc: number, cur: any) => acc + Number(cur.total || 0), 0);
     const todayTips = todayOrders.reduce((acc: number, cur: any) => acc + Number(cur.tip || 0), 0);
@@ -44,14 +44,14 @@ router.get('/dashboard', (req, res) => {
       SELECT *
       FROM inventory_items
       WHERE current_stock <= min_threshold
-    `);
+    `) || [];
 
     // Today reservations
     const todayReservations = query(`
       SELECT *
       FROM reservations
       WHERE reservation_date = ? AND status != 'cancelled'
-    `, [todayStr]);
+    `, [todayStr]) || [];
 
     res.json({
       todaySales: Math.round(todaySales * 100) / 100,
@@ -66,8 +66,12 @@ router.get('/dashboard', (req, res) => {
       todayReservationsCount: todayReservations.length,
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error('Error generating stats:', err);
+    res.status(500).json({ error: err.message || 'Internal server error' });
   }
-});
+};
+
+router.get('/', getStatsHandler);
+router.get('/dashboard', getStatsHandler);
 
 export default router;

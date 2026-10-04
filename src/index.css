@@ -91,12 +91,51 @@ html.dark textarea::placeholder {
 
 /* Terminal & modal accents in low light */
 html.dark .bg-slate-900 {
-  background-color: #020617;
+  background-color: #0f172a;
   border-color: #334155;
 }
 
 html.dark .hover\:bg-slate-800:hover {
   background-color: #1e293b !important;
+}
+
+/* High-contrast and readability guarantees for all buttons with black/dark backgrounds in dark mode */
+html.dark button.bg-slate-900:not(.btn-quick-clock):not(#btn-quick-clock):not(#btn-pos-clock-in),
+html.dark button[class*="bg-slate-900"]:not(.btn-quick-clock):not(#btn-quick-clock):not(#btn-pos-clock-in),
+html.dark button[class*="bg-black"]:not(.btn-quick-clock):not(#btn-quick-clock):not(#btn-pos-clock-in),
+html.dark button[class*="bg-slate-800"]:not(.btn-quick-clock):not(#btn-quick-clock):not(#btn-pos-clock-in),
+html.dark button[class*="bg-slate-950"]:not(.btn-quick-clock):not(#btn-quick-clock):not(#btn-pos-clock-in),
+html.dark a[class*="bg-slate-900"],
+html.dark .btn-dark {
+  color: #ffffff !important;
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+}
+
+html.dark button.bg-slate-900:not(.btn-quick-clock):not(#btn-quick-clock):not(#btn-pos-clock-in):hover,
+html.dark button[class*="bg-slate-900"]:not(.btn-quick-clock):not(#btn-quick-clock):not(#btn-pos-clock-in):hover,
+html.dark button[class*="bg-black"]:not(.btn-quick-clock):not(#btn-quick-clock):not(#btn-pos-clock-in):hover,
+html.dark button[class*="bg-slate-800"]:not(.btn-quick-clock):not(#btn-quick-clock):not(#btn-pos-clock-in):hover,
+html.dark button[class*="bg-slate-950"]:not(.btn-quick-clock):not(#btn-quick-clock):not(#btn-pos-clock-in):hover {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+html.dark button.bg-slate-900:not(.btn-quick-clock) span,
+html.dark button[class*="bg-slate-900"]:not(.btn-quick-clock) span,
+html.dark button[class*="bg-black"]:not(.btn-quick-clock) span,
+html.dark button[class*="bg-slate-800"]:not(.btn-quick-clock) span,
+html.dark button[class*="bg-slate-950"]:not(.btn-quick-clock) span,
+html.dark a[class*="bg-slate-900"] span,
+html.dark .btn-dark span {
+  color: #ffffff !important;
+}
+
+html.dark button.bg-slate-900:not(.btn-quick-clock) svg:not([class*="text-amber"]):not([class*="text-emerald"]):not([class*="text-red"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-indigo"]),
+html.dark button[class*="bg-slate-900"]:not(.btn-quick-clock) svg:not([class*="text-amber"]):not([class*="text-emerald"]):not([class*="text-red"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-indigo"]),
+html.dark button[class*="bg-black"]:not(.btn-quick-clock) svg:not([class*="text-amber"]):not([class*="text-emerald"]):not([class*="text-red"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-indigo"]),
+html.dark button[class*="bg-slate-800"]:not(.btn-quick-clock) svg:not([class*="text-amber"]):not([class*="text-emerald"]):not([class*="text-red"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-indigo"]) {
+  color: #f8fafc !important;
 }
 
 /* Status badges and pills in dark mode for restaurant floor & tickets */

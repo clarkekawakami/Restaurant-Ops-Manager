@@ -9,6 +9,7 @@ import { SeatingModule } from './components/SeatingModule.tsx';
 import { SwitchUserModal } from './components/SwitchUserModal.tsx';
 import { AdminAuthModal } from './components/AdminAuthModal.tsx';
 import { SettingsAndBrandingModal } from './components/SettingsAndBrandingModal.tsx';
+import { EndOfDayWizardModal } from './components/EndOfDayWizardModal.tsx';
 import { StaffMember, AppStats, BusinessProfile } from './types.ts';
 import { api } from './lib/api.ts';
 import { ThemeProvider } from './context/ThemeContext.tsx';
@@ -22,6 +23,7 @@ function AppContent() {
   const [quickClockInOpen, setQuickClockInOpen] = useState<boolean>(false);
   const [businessProfile, setBusinessProfile] = useState<BusinessProfile | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isEndOfDayOpen, setIsEndOfDayOpen] = useState<boolean>(false);
 
   // Modals for user switching & admin authorization
   const [isSwitchUserOpen, setIsSwitchUserOpen] = useState<boolean>(false);
@@ -152,6 +154,7 @@ function AppContent() {
         }}
         profile={businessProfile}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenEndOfDay={() => setIsEndOfDayOpen(true)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
@@ -165,6 +168,7 @@ function AppContent() {
               setQuickClockInOpen(true);
             }}
             profile={businessProfile}
+            onOpenEndOfDay={() => setIsEndOfDayOpen(true)}
           />
         )}
 
@@ -250,6 +254,18 @@ function AppContent() {
         profile={businessProfile}
         onProfileUpdated={(updated) => setBusinessProfile(updated)}
         onDatabaseReinitialized={handleDatabaseReinitialized}
+      />
+
+      {/* End-of-Day Wizard Modal */}
+      <EndOfDayWizardModal
+        isOpen={isEndOfDayOpen}
+        onClose={() => setIsEndOfDayOpen(false)}
+        currentUser={currentUser}
+        profile={businessProfile}
+        onCloseoutComplete={() => {
+          fetchStats();
+          fetchStaff();
+        }}
       />
 
       {/* Subtle footer */}

@@ -296,9 +296,9 @@ export const SeatingModule: React.FC<SeatingModuleProps> = ({
           <button
             id="btn-add-table"
             onClick={() => handleOpenNewTable(selectedLocationId !== 'all' ? selectedLocationId : undefined)}
-            className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-900 dark:bg-amber-500 dark:text-slate-950 text-white hover:bg-slate-800 dark:hover:bg-amber-400 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-900 dark:bg-slate-800 text-white dark:text-white border border-transparent dark:border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
           >
-            <Plus className="w-4 h-4 text-amber-400 dark:text-slate-950" />
+            <Plus className="w-4 h-4 text-amber-400" />
             <span>Add Table</span>
           </button>
         </div>
@@ -485,9 +485,9 @@ export const SeatingModule: React.FC<SeatingModuleProps> = ({
           </p>
           <button
             onClick={() => handleOpenNewTable(selectedLocationId !== 'all' ? selectedLocationId : undefined)}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-slate-900 dark:bg-amber-500 dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-amber-400 transition cursor-pointer inline-flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl text-xs font-bold text-white dark:text-white bg-slate-900 dark:bg-slate-800 border border-transparent dark:border-slate-700 hover:bg-slate-800 dark:hover:bg-slate-700 transition cursor-pointer inline-flex items-center gap-1.5"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 text-amber-400" />
             Add Table
           </button>
         </div>
@@ -751,7 +751,7 @@ export const SeatingModule: React.FC<SeatingModuleProps> = ({
                   )}
                   <button
                     type="submit"
-                    className="px-4 py-1.5 bg-slate-900 dark:bg-amber-500 dark:text-slate-950 text-white font-bold rounded-lg hover:bg-slate-800 dark:hover:bg-amber-400 cursor-pointer"
+                    className="px-4 py-1.5 bg-slate-900 dark:bg-slate-800 text-white dark:text-white border border-transparent dark:border-slate-700 font-bold rounded-lg hover:bg-slate-800 dark:hover:bg-slate-700 cursor-pointer"
                   >
                     {editingLocation ? 'Update Location' : 'Add Location'}
                   </button>
@@ -897,7 +897,7 @@ export const SeatingModule: React.FC<SeatingModuleProps> = ({
                         onClick={() => setTableForm({ ...tableForm, seats: s })}
                         className={`px-2.5 py-1.5 rounded-lg font-mono font-bold text-xs border transition cursor-pointer ${
                           tableForm.seats === s
-                            ? 'bg-slate-900 text-white dark:bg-amber-500 dark:text-slate-950 border-transparent'
+                            ? 'bg-slate-900 text-white dark:bg-slate-800 dark:text-white border-transparent dark:border-slate-600'
                             : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                         }`}
                       >
@@ -951,7 +951,7 @@ export const SeatingModule: React.FC<SeatingModuleProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl text-xs font-bold bg-slate-900 dark:bg-amber-500 dark:text-slate-950 text-white hover:bg-slate-800 dark:hover:bg-amber-400 cursor-pointer shadow-2xs"
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white dark:text-white border border-transparent dark:border-slate-600 cursor-pointer shadow-2xs"
                 >
                   {editingTable ? 'Save Changes' : 'Create Table'}
                 </button>

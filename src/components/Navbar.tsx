@@ -16,6 +16,7 @@ import {
   Moon,
   Armchair,
   Settings,
+  Sparkles,
 } from 'lucide-react';
 import { DashboardStats, StaffMember, BusinessProfile } from '../types.ts';
 import { useTheme } from '../context/ThemeContext.tsx';
@@ -35,6 +36,7 @@ interface NavbarProps {
   onQuickClockIn?: () => void;
   profile?: BusinessProfile | null;
   onOpenSettings?: () => void;
+  onOpenEndOfDay?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -48,6 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onQuickClockIn,
   profile,
   onOpenSettings,
+  onOpenEndOfDay,
 }) => {
   const { isDark, toggleTheme } = useTheme();
   const [timeStr, setTimeStr] = useState<string>('');
@@ -226,6 +229,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {profile.database_mode}
                   </span>
                 )}
+              </button>
+            )}
+
+            {/* Daily Closeout & End-of-Day Wizard Button */}
+            {onOpenEndOfDay && (
+              <button
+                id="btn-open-closeout"
+                onClick={onOpenEndOfDay}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-amber-300/80 dark:border-amber-700/80 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/50 text-amber-900 dark:text-amber-200 transition cursor-pointer shadow-2xs font-bold text-xs"
+                title="Open Daily Closeout & End-of-Day Wizard"
+              >
+                <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span className="hidden sm:inline">Close Day</span>
               </button>
             )}
 

@@ -259,6 +259,30 @@ function initSchema(db: Database) {
       setup_completed INTEGER DEFAULT 1,
       updated_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS daily_closeouts (
+      id TEXT PRIMARY KEY,
+      closeout_date TEXT NOT NULL,
+      closed_by_staff_id TEXT,
+      closed_by_staff_name TEXT NOT NULL,
+      gross_sales REAL NOT NULL DEFAULT 0,
+      net_sales REAL NOT NULL DEFAULT 0,
+      tax_collected REAL NOT NULL DEFAULT 0,
+      tips_collected REAL NOT NULL DEFAULT 0,
+      cash_sales REAL NOT NULL DEFAULT 0,
+      card_sales REAL NOT NULL DEFAULT 0,
+      starting_float REAL NOT NULL DEFAULT 200,
+      expected_cash REAL NOT NULL DEFAULT 0,
+      actual_cash REAL NOT NULL DEFAULT 0,
+      cash_variance REAL NOT NULL DEFAULT 0,
+      cogs_total REAL NOT NULL DEFAULT 0,
+      orders_count INTEGER NOT NULL DEFAULT 0,
+      labor_hours REAL NOT NULL DEFAULT 0,
+      notes TEXT,
+      z_report_number INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (closed_by_staff_id) REFERENCES staff(id) ON DELETE SET NULL
+    );
   `);
 
   // Ensure business_profile is initialized
@@ -561,7 +585,13 @@ function seedData(db: Database) {
     ('oi_4', 'ord_active_2', 'item_2', 'Crisp Calamari Fritti', 2, 15.00, 30.00, 'Light lemon aioli', 'cooking'),
     ('oi_5', 'ord_active_2', 'item_4', 'Pan-Seared Atlantic Salmon', 2, 31.00, 62.00, 'Citrus reduction', 'pending'),
     ('oi_6', 'ord_active_2', 'item_5', 'Handmade Tagliatelle al Tartufo', 1, 26.50, 26.50, 'Fresh ground pepper', 'pending'),
-    ('oi_7', 'ord_active_2', 'item_8', 'Charred Broccolini', 1, 10.50, 10.50, 'No almonds (allergy alert)', 'pending');
+    ('oi_7', 'ord_active_2', 'item_8', 'Charred Broccolini', 1, 10.50, 10.50, 'No almonds (allergy alert)', 'pending'),
+    ('oi_8', 'ord_comp_1', 'item_3', 'Prime Grilled Ribeye (12oz)', 1, 39.00, 39.00, 'Medium rare', 'served'),
+    ('oi_9', 'ord_comp_1', 'item_4', 'Pan-Seared Atlantic Salmon', 1, 31.00, 31.00, 'Dill butter', 'served'),
+    ('oi_10', 'ord_comp_1', 'item_11', 'Chianti Classico Riserva (Glass)', 1, 12.00, 12.00, '', 'served'),
+    ('oi_11', 'ord_comp_2', 'item_6', 'Rustic Rigatoni Bolognese', 1, 24.00, 24.00, 'Extra parmesan', 'served'),
+    ('oi_12', 'ord_comp_2', 'item_7', 'Molten Dark Chocolate Cake', 1, 9.50, 9.50, 'Warm with gelato', 'served'),
+    ('oi_13', 'ord_comp_2', 'item_12', 'Double Espresso & Biscotti', 1, 5.00, 5.00, '', 'served');
   `);
 
   // 8. Reservations
@@ -664,6 +694,7 @@ export function resetAndSeedDatabase(options: {
 
   // Clear all operational tables
   db.run(`
+    DELETE FROM daily_closeouts;
     DELETE FROM order_items;
     DELETE FROM orders;
     DELETE FROM tips;

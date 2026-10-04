@@ -34,6 +34,7 @@ interface OrdersModuleProps {
   preselectedTable?: string | null;
   onOpenQuickClockIn?: () => void;
   profile?: BusinessProfile | null;
+  onOpenEndOfDay?: () => void;
 }
 
 export const OrdersModule: React.FC<OrdersModuleProps> = ({
@@ -42,6 +43,7 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
   preselectedTable,
   onOpenQuickClockIn,
   profile,
+  onOpenEndOfDay,
 }) => {
   const [subView, setSubView] = useState<'active' | 'create' | 'history'>('active');
   const [orders, setOrders] = useState<Order[]>([]);
@@ -353,7 +355,7 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
             }}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
               subView === 'create'
-                ? 'bg-slate-900 dark:bg-amber-500 text-white dark:text-slate-950 shadow-2xs'
+                ? 'bg-slate-900 dark:bg-slate-800 text-white dark:text-white border border-transparent dark:border-slate-600 shadow-2xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -375,11 +377,22 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-500 dark:text-slate-400">
           <span className="hidden md:flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             Cash & Standalone Card Station Active
           </span>
+          {onOpenEndOfDay && (
+            <button
+              id="btn-pos-end-of-day"
+              onClick={onOpenEndOfDay}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-500/30 transition cursor-pointer shadow-2xs"
+              title="Open Daily Closeout & End-of-Day Wizard"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>End-of-Day Wizard</span>
+            </button>
+          )}
           {onOpenQuickClockIn && (
             <button
               id="btn-pos-clock-in"
@@ -398,18 +411,18 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
       {subView === 'active' && (
         <div className="space-y-4">
           {activeOrders.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-2xl border border-dashed border-slate-300">
-              <Utensils className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-              <h3 className="font-heading font-bold text-slate-700 text-base">No Active Tickets</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
+            <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800">
+              <Utensils className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+              <h3 className="font-heading font-bold text-slate-700 dark:text-slate-200 text-base">No Active Tickets</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto mt-1 mb-4">
                 The floor is clear. Click below to start a new dine-in table, bar tab, or takeout order.
               </p>
               <button
                 onClick={() => setSubView('create')}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 transition cursor-pointer inline-flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 border border-transparent dark:border-slate-600 transition cursor-pointer inline-flex items-center gap-1.5"
               >
-                <Plus className="w-4 h-4" />
-                Create New Ticket
+                <Plus className="w-4 h-4 text-amber-400" />
+                <span>Create New Ticket</span>
               </button>
             </div>
           ) : (
@@ -419,12 +432,12 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
                   OrderStatus,
                   { bg: string; text: string; label: string; icon: any }
                 > = {
-                  active: { bg: 'bg-blue-50 border-blue-200', text: 'text-blue-700', label: 'Floor Active', icon: Clock },
-                  in_kitchen: { bg: 'bg-amber-50 border-amber-200', text: 'text-amber-800', label: 'In Kitchen', icon: ChefHat },
-                  ready: { bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-800', label: 'Ready to Serve', icon: CheckCircle },
-                  served: { bg: 'bg-indigo-50 border-indigo-200', text: 'text-indigo-800', label: 'Served / Dining', icon: Utensils },
-                  completed: { bg: 'bg-slate-50 border-slate-200', text: 'text-slate-800', label: 'Completed', icon: CheckCircle },
-                  cancelled: { bg: 'bg-red-50 border-red-200', text: 'text-red-800', label: 'Cancelled', icon: AlertCircle },
+                  active: { bg: 'bg-blue-50 border-blue-200 dark:bg-blue-950/60 dark:border-blue-800', text: 'text-blue-700 dark:text-blue-300', label: 'Floor Active', icon: Clock },
+                  in_kitchen: { bg: 'bg-amber-50 border-amber-200 dark:bg-amber-950/60 dark:border-amber-800', text: 'text-amber-800 dark:text-amber-300', label: 'In Kitchen', icon: ChefHat },
+                  ready: { bg: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-800', text: 'text-emerald-800 dark:text-emerald-300', label: 'Ready to Serve', icon: CheckCircle },
+                  served: { bg: 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/60 dark:border-indigo-800', text: 'text-indigo-800 dark:text-indigo-300', label: 'Served / Dining', icon: Utensils },
+                  completed: { bg: 'bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700', text: 'text-slate-800 dark:text-slate-300', label: 'Completed', icon: CheckCircle },
+                  cancelled: { bg: 'bg-red-50 border-red-200 dark:bg-red-950/60 dark:border-red-800', text: 'text-red-800 dark:text-red-300', label: 'Cancelled', icon: AlertCircle },
                 };
 
                 const currentConfig = statusStyles[order.status];
@@ -434,24 +447,24 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
                   <div
                     key={order.id}
                     id={`ticket-${order.order_number}`}
-                    className="bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between overflow-hidden hover:border-slate-300 transition"
+                    className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between overflow-hidden hover:border-slate-300 dark:hover:border-slate-700 transition"
                   >
                     {/* Ticket Header */}
-                    <div className="p-4 bg-slate-50/80 border-b border-slate-100 flex items-start justify-between">
+                    <div className="p-4 bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-heading font-black text-slate-900 text-lg">
+                          <span className="font-heading font-black text-slate-900 dark:text-white text-lg">
                             #{order.order_number}
                           </span>
-                          <span className="text-xs font-bold text-slate-700 px-2 py-0.5 rounded-md bg-white border border-slate-200">
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                             {order.table_number}
                           </span>
-                          <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">
+                          <span className="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400 tracking-wider">
                             {order.order_type}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-1">
-                          Server: <span className="font-medium text-slate-700">{order.server_name || 'Unassigned'}</span> &bull; {order.guest_count} guests
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                          Server: <span className="font-medium text-slate-700 dark:text-slate-300">{order.server_name || 'Unassigned'}</span> &bull; {order.guest_count} guests
                         </p>
                       </div>
 
@@ -469,16 +482,16 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
                         <div key={item.id} className="text-xs flex justify-between items-start">
                           <div>
                             <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-slate-900 font-mono">{item.quantity}x</span>
-                              <span className="font-medium text-slate-800">{item.name}</span>
+                              <span className="font-bold text-slate-900 dark:text-white font-mono">{item.quantity}x</span>
+                              <span className="font-medium text-slate-800 dark:text-slate-200">{item.name}</span>
                             </div>
                             {item.notes && (
-                              <p className="text-[11px] text-amber-700 italic pl-5 mt-0.5">
+                              <p className="text-[11px] text-amber-700 dark:text-amber-400 italic pl-5 mt-0.5">
                                 Note: {item.notes}
                               </p>
                             )}
                           </div>
-                          <span className="font-mono text-slate-600 font-medium">
+                          <span className="font-mono text-slate-600 dark:text-slate-400 font-medium">
                             ${item.total_price.toFixed(2)}
                           </span>
                         </div>
@@ -531,10 +544,10 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
                         <button
                           id={`btn-pay-${order.order_number}`}
                           onClick={() => setPayingOrder(order)}
-                          className="py-2 px-3 rounded-xl text-xs font-bold bg-slate-900 dark:bg-amber-500 text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-amber-400 transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                          className="py-2 px-3 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white dark:text-white border border-transparent dark:border-slate-600 transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
                         >
-                          <CreditCard className="w-3.5 h-3.5 text-amber-400 dark:text-slate-950" />
-                          <span>Pay & Close</span>
+                          <CreditCard className="w-3.5 h-3.5 text-amber-400" />
+                          <span className="text-white font-bold">Pay & Close</span>
                         </button>
                       </div>
                     </div>
@@ -964,7 +977,7 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({
                     id="btn-send-kitchen"
                     disabled={cartItems.length === 0}
                     onClick={handleSaveOrder}
-                    className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-40 transition cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+                    className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-white dark:text-white bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 border border-transparent dark:border-slate-600 disabled:opacity-40 transition cursor-pointer flex items-center justify-center gap-2 shadow-sm"
                   >
                     {editingOrder ? (
                       <>

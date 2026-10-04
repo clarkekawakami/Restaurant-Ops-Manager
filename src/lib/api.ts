@@ -17,6 +17,8 @@ import {
   BusinessProfile,
   DatabaseStatus,
   ReinitializeOptions,
+  DailyCloseoutRecord,
+  CloseoutPreviewData,
 } from '../types.ts';
 
 const jsonHeaders = { 'Content-Type': 'application/json' };
@@ -25,12 +27,29 @@ export const api = {
   // Stats
   getDashboardStats: async (): Promise<DashboardStats & { cashSales: number; cardSales: number; lowStockCount: number }> => {
     const res = await fetch('/api/stats/dashboard');
-    if (!res.ok) throw new Error('Failed to fetch dashboard stats');
+    const contentType = res.headers.get('content-type') || '';
+    if (!res.ok || !contentType.includes('application/json')) {
+      // Fallback attempt to root stats endpoint
+      const fallback = await fetch('/api/stats');
+      const fallbackType = fallback.headers.get('content-type') || '';
+      if (fallback.ok && fallbackType.includes('application/json')) {
+        return fallback.json();
+      }
+      throw new Error(`Failed to fetch dashboard stats (HTTP ${res.status})`);
+    }
     return res.json();
   },
   getStats: async (): Promise<DashboardStats & { cashSales: number; cardSales: number; lowStockCount: number }> => {
     const res = await fetch('/api/stats/dashboard');
-    if (!res.ok) throw new Error('Failed to fetch dashboard stats');
+    const contentType = res.headers.get('content-type') || '';
+    if (!res.ok || !contentType.includes('application/json')) {
+      const fallback = await fetch('/api/stats');
+      const fallbackType = fallback.headers.get('content-type') || '';
+      if (fallback.ok && fallbackType.includes('application/json')) {
+        return fallback.json();
+      }
+      throw new Error(`Failed to fetch stats (HTTP ${res.status})`);
+    }
     return res.json();
   },
 
@@ -566,6 +585,76 @@ export const api = {
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.error || 'Failed to reinitialize database');
+    }
+    return res.json();
+  },
+
+  // Daily Closeout & End-of-Day Wizard
+  getCloseoutPreview: async (date?: string): Promise<CloseoutPreviewData> => {
+    const url = date ? `/api/closeout/preview?date=${encodeURIComponent(date)}` : '/api/closeout/preview';
+    const res = await fetch(url);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to fetch closeout preview');
+    }
+    return res.json();
+  },
+  settleOpenOrders: async (payment_method: string = 'cash', server_id?: string | null): Promise<{ message: string; settledCount: number }> => {
+    const res = await fetch('/api/closeout/settle-open-orders', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ payment_method, server_id }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to settle open orders');
+    }
+    return res.json();
+  },
+  clockOutAllStaff: async (): Promise<{ message: string; clockedOutCount: number }> => {
+    const res = await fetch('/api/closeout/clock-out-all', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to clock out all staff');
+    }
+    return res.json();
+  },
+  finalizeCloseout: async (data: {
+    closeout_date?: string;
+    closed_by_staff_id?: string | null;
+    closed_by_staff_name: string;
+    starting_float: number;
+    actual_cash: number;
+    notes?: string;
+  }): Promise<{ message: string; closeout: DailyCloseoutRecord; zReportNumber: number }> => {
+    const res = await fetch('/api/closeout/finalize', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to finalize closeout');
+    }
+    return res.json();
+  },
+  getCloseoutHistory: async (): Promise<DailyCloseoutRecord[]> => {
+    const res = await fetch('/api/closeout/history');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to fetch closeout history');
+    }
+    return res.json();
+  },
+  getCloseoutById: async (id: string): Promise<DailyCloseoutRecord> => {
+    const res = await fetch(`/api/closeout/${encodeURIComponent(id)}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to fetch closeout report');
     }
     return res.json();
   },

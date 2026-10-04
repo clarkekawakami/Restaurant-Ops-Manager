@@ -301,3 +301,63 @@ export interface ReinitializeOptions {
     pin: string;
   };
 }
+
+export interface DailyCloseoutRecord {
+  id: string;
+  closeout_date: string;
+  closed_by_staff_id?: string | null;
+  closed_by_staff_name: string;
+  gross_sales: number;
+  net_sales: number;
+  tax_collected: number;
+  tips_collected: number;
+  cash_sales: number;
+  card_sales: number;
+  starting_float: number;
+  expected_cash: number;
+  actual_cash: number;
+  cash_variance: number;
+  cogs_total: number;
+  orders_count: number;
+  labor_hours: number;
+  notes?: string;
+  z_report_number: number;
+  created_at: string;
+}
+
+export interface CloseoutPreviewData {
+  date: string;
+  openOrders: Order[];
+  openOrdersCount: number;
+  activeShifts: Array<TimeShift & { staff_name: string; staff_title: string; current_hours: number; hourly_rate?: number }>;
+  activeStaffCount: number;
+  salesSummary: {
+    grossSales: number;
+    netSales: number;
+    taxTotal: number;
+    tipTotal: number;
+    orderCount: number;
+    cashSales: number;
+    cardSales: number;
+    otherSales: number;
+    avgCheckSize: number;
+  };
+  tipsSummary: {
+    totalTips: number;
+    cashTips: number;
+    cardTips: number;
+  };
+  staffSummary: {
+    totalHoursWorked: number;
+    estimatedLaborCost: number;
+    clockedInStaffCount: number;
+  };
+  primeCostSummary: {
+    totalCogs: number;
+    foodCostPercent: number;
+  };
+  lowStockItems: InventoryItem[];
+  previousCloseout: DailyCloseoutRecord | null;
+  nextZReportNumber: number;
+}
+

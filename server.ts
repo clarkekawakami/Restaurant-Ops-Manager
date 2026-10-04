@@ -11,6 +11,7 @@ import reservationsRouter from './server/routes/reservations.ts';
 import statsRouter from './server/routes/stats.ts';
 import seatingRouter from './server/routes/seating.ts';
 import settingsRouter from './server/routes/settings.ts';
+import closeoutRouter from './server/routes/closeout.ts';
 
 async function startServer() {
   // Initialize SQLite database
@@ -36,6 +37,12 @@ async function startServer() {
   app.use('/api/stats', statsRouter);
   app.use('/api/seating', seatingRouter);
   app.use('/api/settings', settingsRouter);
+  app.use('/api/closeout', closeoutRouter);
+
+  // Catch-all for unmatched API routes to ensure they return JSON 404, never index.html
+  app.all('/api/*', (req, res) => {
+    res.status(404).json({ error: `Not found: ${req.method} ${req.originalUrl}` });
+  });
 
   // Vite middleware in development vs static serving in production
   if (process.env.NODE_ENV !== 'production') {
